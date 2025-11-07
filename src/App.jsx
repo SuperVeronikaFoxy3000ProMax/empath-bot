@@ -62,6 +62,15 @@ function App() {
         } finally {
           setIsLoading(false)
         }
+      } else {
+        // Если WebApp недоступен (например, при тестировании в браузере)
+        setUserData({
+          name: 'Друг',
+          userId: null,
+          photo: null,
+          language: 'ru'
+        })
+        setIsLoading(false)
       }
     }
 
@@ -70,7 +79,7 @@ function App() {
 
   // Обновляем видимость кнопки назад
   useEffect(() => {
-    if (window.WebApp) {
+    if (window.WebApp && window.WebApp.BackButton) {
       if (currentView !== 'dashboard') {
         window.WebApp.BackButton.show()
       } else {
@@ -161,7 +170,9 @@ function App() {
             subtitle="Отметить текущее состояние"
             showChevron
             onClick={() => {
-              window.WebApp.HapticFeedback.impactOccurred('light')
+              if (window.WebApp?.HapticFeedback) {
+                window.WebApp.HapticFeedback.impactOccurred('light')
+              }
               setCurrentView('mood')
             }}
           />
@@ -172,7 +183,9 @@ function App() {
             after={<Dot appearance="themed" />}
             showChevron
             onClick={() => {
-              window.WebApp.HapticFeedback.impactOccurred('light')
+              if (window.WebApp?.HapticFeedback) {
+                window.WebApp.HapticFeedback.impactOccurred('light')
+              }
               setCurrentView('challenge')
             }}
           />
@@ -182,7 +195,9 @@ function App() {
             subtitle="Найди свой покой"
             showChevron
             onClick={() => {
-              window.WebApp.HapticFeedback.impactOccurred('light')
+              if (window.WebApp?.HapticFeedback) {
+                window.WebApp.HapticFeedback.impactOccurred('light')
+              }
               setCurrentView('meditations')
             }}
           />
@@ -208,7 +223,9 @@ function App() {
             subtitle="Изучи новую карточку"
             showChevron
             onClick={() => {
-              window.WebApp.HapticFeedback.impactOccurred('light')
+              if (window.WebApp?.HapticFeedback) {
+                window.WebApp.HapticFeedback.impactOccurred('light')
+              }
               setCurrentView('psychology')
             }}
           />
@@ -269,7 +286,9 @@ function App() {
               icon="📊"
               appearance={currentView === 'dashboard' ? 'secondary' : 'default'}
               onClick={() => {
-                window.WebApp.HapticFeedback.selectionChanged()
+                if (window.WebApp?.HapticFeedback) {
+                  window.WebApp.HapticFeedback.selectionChanged()
+                }
                 setCurrentView('dashboard')
               }}
             >
@@ -279,7 +298,9 @@ function App() {
               icon="📝"
               appearance={currentView === 'mood' ? 'secondary' : 'default'}
               onClick={() => {
-                window.WebApp.HapticFeedback.selectionChanged()
+                if (window.WebApp?.HapticFeedback) {
+                  window.WebApp.HapticFeedback.selectionChanged()
+                }
                 setCurrentView('mood')
               }}
             >
@@ -289,7 +310,9 @@ function App() {
               icon="🌿"
               appearance={currentView === 'challenge' ? 'secondary' : 'default'}
               onClick={() => {
-                window.WebApp.HapticFeedback.selectionChanged()
+                if (window.WebApp?.HapticFeedback) {
+                  window.WebApp.HapticFeedback.selectionChanged()
+                }
                 setCurrentView('challenge')
               }}
             >
@@ -299,7 +322,9 @@ function App() {
               icon="🧘"
               appearance={currentView === 'meditations' ? 'secondary' : 'default'}
               onClick={() => {
-                window.WebApp.HapticFeedback.selectionChanged()
+                if (window.WebApp?.HapticFeedback) {
+                  window.WebApp.HapticFeedback.selectionChanged()
+                }
                 setCurrentView('meditations')
               }}
             >
