@@ -11,12 +11,22 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,  // Для дебаггинга в продакшене
     assetsDir: 'assets',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Используем относительные пути для ресурсов
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        chunkFileNames: 'assets/[name].[hash].js',
+        entryFileNames: 'assets/[name].[hash].js'
+      }
+    }
   },
   // Для MAX Bridge важно:
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
   },
-  // Если приложение развернуто не в корне, укажите base:
-  // base: '/your-subdirectory/'
+  // ВАЖНО: Если приложение развернуто НЕ в корне домена, измените base:
+  // Например, если приложение в подпапке /app/, используйте: base: '/app/'
+  // Для корня домена оставьте: base: '/'
+  base: '/'
 })
