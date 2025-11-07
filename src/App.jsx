@@ -9,228 +9,225 @@ import {
   CellList,
   CellSimple,
   CellHeader,
+  CellAction,
   Avatar,
   IconButton,
   ToolButton,
   Counter,
-  Switch
+  Switch,
+  Spinner,
+  Dot,
+  SearchInput,
+  Input,
+  Textarea
 } from '@maxhub/max-ui'
 
+import MoodTracker from './components/MoodTracker'
+import EcoChallenge from './components/EcoChallenge'
+import Meditations from './components/Meditations'
+import PsychologyCards from './components/PsychologyCards'
+
 function App() {
-  const [userData, setUserData] = useState(null)
   const [currentView, setCurrentView] = useState('dashboard')
+  const [userData, setUserData] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Инициализация WebApp
-    if (window.WebApp) {
-      window.WebApp.ready()
-      
-      // Получение данных пользователя
-      const initData = window.WebApp.initDataUnsafe
-      setUserData({
-        name: initData?.user?.first_name || 'Друг',
-        photo: initData?.user?.photo_url
-      })
+    const initializeApp = async () => {
+      if (window.WebApp) {
+        try {
+          // Получаем данные пользователя из Bridge
+          const initData = window.WebApp.initDataUnsafe
+          const user = initData?.user || {}
+          
+          setUserData({
+            name: user.first_name || 'Друг',
+            userId: user.id,
+            photo: user.photo_url,
+            language: user.language_code || 'ru'
+          })
+
+          // Включаем подтверждение закрытия
+          window.WebApp.enableClosingConfirmation()
+
+          // Настраиваем кнопку назад
+          window.WebApp.BackButton.onClick(() => {
+            if (currentView !== 'dashboard') {
+              setCurrentView('dashboard')
+            }
+          })
+
+        } catch (error) {
+          console.error('Error initializing app:', error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
     }
-  }, [])
+
+    initializeApp()
+  }, [currentView])
+
+  // Обновляем видимость кнопки назад
+  useEffect(() => {
+    if (window.WebApp) {
+      if (currentView !== 'dashboard') {
+        window.WebApp.BackButton.show()
+      } else {
+        window.WebApp.BackButton.hide()
+      }
+    }
+  }, [currentView])
+
+  const handleShare = async () => {
+    if (window.WebApp) {
+      try {
+        window.WebApp.HapticFeedback.impactOccurred('medium')
+        
+        const result = await new Promise((resolve) => {
+          const requestId = Date.now().toString()
+          
+          const handleResponse = (event) => {
+            if (event.detail.requestId === requestId) {
+              window.removeEventListener('WebAppShareResponse', handleResponse)
+              resolve(event.detail)
+            }
+          }
+          
+          window.addEventListener('WebAppShareResponse', handleResponse)
+          
+          window.WebApp.shareContent({
+            requestId,
+            text: 'Присоединяйся к Empath - приложению для заботы о ментальном здоровье! 🌱',
+            link: 'https://max.ru/empath_bot?startapp'
+          })
+        })
+        
+        if (result.status === 'shared') {
+          window.WebApp.HapticFeedback.notificationOccurred('success')
+        }
+      } catch (error) {
+        console.error('Share error:', error)
+      }
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Panel mode="secondary" centeredX centeredY>
+        <Flex direction="column" align="center" gap={16}>
+          <Spinner appearance="themed" size={32} />
+          <Typography.Body variant="medium">Загружаем Empath...</Typography.Body>
+        </Flex>
+      </Panel>
+    )
+  }
 
   const Dashboard = () => (
     <Panel mode="secondary">
       <Flex direction="column" gap={24}>
-        {/* Заголовок */}
+        {/* Приветствие */}
         <Container>
           <Flex direction="column" align="center" gap={16}>
-            <Avatar.Container size={72} form="circle">
+            <Avatar.Container size={80} form="squircle">
               {userData?.photo ? (
-                <Avatar.Image src={userData.photo} alt={userData.name} />
+                <Avatar.Image 
+                  src={userData.photo} 
+                  alt={userData.name}
+                  fallback={userData.name.charAt(0)}
+                />
               ) : (
                 <Avatar.Text gradient="green">
                   {userData?.name?.charAt(0) || 'E'}
                 </Avatar.Text>
               )}
             </Avatar.Container>
-            <Typography.Headline variant="medium-strong">
-              Привет, {userData?.name}!
-            </Typography.Headline>
-            <Typography.Body variant="medium">
-              Как проходит твой день?
-            </Typography.Body>
+            <Flex direction="column" align="center">
+              <Typography.Headline variant="medium-strong">
+                Привет, {userData?.name}!
+              </Typography.Headline>
+              <Typography.Body variant="medium" style={{ textAlign: 'center' }}>
+                Сегодня отличный день для заботы о себе 🌱
+              </Typography.Body>
+            </Flex>
           </Flex>
         </Container>
 
         {/* Быстрые действия */}
-        <CellList mode="island" header={<CellHeader>Быстрый старт</CellHeader>}>
+        <CellList mode="island" header={<CellHeader titleStyle="caps">Быстрый старт</CellHeader>}>
           <CellSimple
             before="📝"
-            title="Отметить настроение"
+            title="Дневник настроения"
+            subtitle="Отметить текущее состояние"
             showChevron
-            onClick={() => setCurrentView('mood')}
+            onClick={() => {
+              window.WebApp.HapticFeedback.impactOccurred('light')
+              setCurrentView('mood')
+            }}
           />
           <CellSimple
             before="🌿"
             title="Эко-челлендж"
+            subtitle="День 3 из 5"
+            after={<Dot appearance="themed" />}
             showChevron
-            onClick={() => setCurrentView('challenge')}
+            onClick={() => {
+              window.WebApp.HapticFeedback.impactOccurred('light')
+              setCurrentView('challenge')
+            }}
           />
           <CellSimple
             before="🧘"
             title="Медитации"
+            subtitle="Найди свой покой"
             showChevron
-            onClick={() => setCurrentView('meditations')}
+            onClick={() => {
+              window.WebApp.HapticFeedback.impactOccurred('light')
+              setCurrentView('meditations')
+            }}
+          />
+        </CellList>
+
+        {/* Сегодняшние активности */}
+        <CellList mode="island" header={<CellHeader titleStyle="caps">Сегодня</CellHeader>}>
+          <CellSimple
+            before="💧"
+            title="Выпить воды"
+            subtitle="2 из 8 стаканов"
+            after={<Counter value={2} appearance="themed" />}
+          />
+          <CellSimple
+            before="🚶"
+            title="Прогулка"
+            subtitle="15 минут на свежем воздухе"
+            after={<Counter value={15} appearance="themed" />}
+          />
+          <CellSimple
+            before="📚"
+            title="Психология"
+            subtitle="Изучи новую карточку"
+            showChevron
+            onClick={() => {
+              window.WebApp.HapticFeedback.impactOccurred('light')
+              setCurrentView('psychology')
+            }}
           />
         </CellList>
 
         {/* Статистика */}
-        <CellList mode="island" header={<CellHeader>Моя статистика</CellHeader>}>
+        <CellList mode="island" header={<CellHeader titleStyle="caps">Мой прогресс</CellHeader>}>
           <CellSimple
-            before="📊"
-            title="Записей в дневнике"
-            after={<Counter value={7} />}
+            title="Подряд дней с настроением"
+            after={<Counter value={7} appearance="themed" mode="filled" />}
           />
           <CellSimple
-            before="📚"
             title="Прочитано карточек"
-            after={<Counter value={3} />}
+            after={<Counter value={12} appearance="themed" mode="filled" />}
           />
           <CellSimple
-            before="🌱"
-            title="Завершено челленджей"
-            after={<Counter value={2} />}
+            title="Завершено медитаций"
+            after={<Counter value={5} appearance="themed" mode="filled" />}
           />
-        </CellList>
-
-        {/* Уведомления */}
-        <CellList mode="island" header={<CellHeader>Уведомления</CellHeader>}>
-          <CellSimple
-            as="label"
-            title="Напоминания о настроении"
-            after={<Switch defaultChecked />}
-          />
-          <CellSimple
-            as="label"
-            title="Эко-челленджи"
-            after={<Switch defaultChecked />}
-          />
-          <CellSimple
-            as="label"
-            title="Советы по самооборте"
-            after={<Switch defaultChecked />}
-          />
-        </CellList>
-      </Flex>
-    </Panel>
-  )
-
-  const MoodTracker = () => (
-    <Panel mode="secondary">
-      <Flex direction="column" gap={24}>
-        <Container>
-          <Typography.Headline variant="medium-strong">
-            📝 Дневник настроения
-          </Typography.Headline>
-          <Typography.Body variant="medium">
-            Как ты себя чувствуешь сегодня?
-          </Typography.Body>
-        </Container>
-
-        <Grid cols={5} gap={8}>
-          {['😢', '😔', '😐', '😊', '😄'].map((emoji, index) => (
-            <Button
-              key={index}
-              mode="secondary"
-              appearance="themed"
-              size="large"
-              onClick={() => {
-                // Логика сохранения настроения
-                if (window.WebApp) {
-                  window.WebApp.HapticFeedback.impactOccurred('light')
-                }
-                setCurrentView('mood_reason')
-              }}
-            >
-              {emoji}
-            </Button>
-          ))}
-        </Grid>
-
-        <CellList mode="island">
-          <CellSimple
-            title="Недельная статистика"
-            subtitle="Просмотр тенденций настроения"
-            showChevron
-            onClick={() => setCurrentView('stats')}
-          />
-        </CellList>
-      </Flex>
-    </Panel>
-  )
-
-  const ChallengeView = () => (
-    <Panel mode="secondary">
-      <Flex direction="column" gap={24}>
-        <Container>
-          <Typography.Headline variant="medium-strong">
-            🌿 Эко-эмпатия челлендж
-          </Typography.Headline>
-          <Typography.Body variant="medium">
-            5 дней гармонии с собой и природой
-          </Typography.Body>
-        </Container>
-
-        <CellList mode="island">
-          {[
-            { day: 1, title: 'Детокс от шума', completed: true },
-            { day: 2, title: 'Меньше = легче', completed: true },
-            { day: 3, title: 'Цифровой отдых', completed: false },
-            { day: 4, title: 'Эко-день для души', completed: false },
-            { day: 5, title: 'Поделись добром', completed: false }
-          ].map((challenge, index) => (
-            <CellSimple
-              key={index}
-              before={challenge.completed ? '✅' : '📅'}
-              title={`День ${challenge.day}: ${challenge.title}`}
-              subtitle={challenge.completed ? 'Завершено' : 'Ожидает'}
-              showChevron={!challenge.completed}
-            />
-          ))}
-        </CellList>
-      </Flex>
-    </Panel>
-  )
-
-  const MeditationsView = () => (
-    <Panel mode="secondary">
-      <Flex direction="column" gap={24}>
-        <Container>
-          <Typography.Headline variant="medium-strong">
-            🧘 Медитации
-          </Typography.Headline>
-          <Typography.Body variant="medium">
-            Выбери практику для гармонии
-          </Typography.Body>
-        </Container>
-
-        <CellList mode="island">
-          {[
-            { name: '💤 Перед сном', duration: '10 мин' },
-            { name: '🌪️ Против тревоги', duration: '5 мин' },
-            { name: '🌊 Расслабляющая', duration: '7 мин' },
-            { name: '🎯 На концентрацию', duration: '8 мин' }
-          ].map((meditation, index) => (
-            <CellSimple
-              key={index}
-              before="🎧"
-              title={meditation.name}
-              subtitle={meditation.duration}
-              showChevron
-              onClick={() => {
-                // Запуск медитации
-                if (window.WebApp) {
-                  window.WebApp.HapticFeedback.impactOccurred('soft')
-                }
-              }}
-            />
-          ))}
         </CellList>
       </Flex>
     </Panel>
@@ -239,68 +236,72 @@ function App() {
   const renderView = () => {
     switch (currentView) {
       case 'mood': return <MoodTracker />
-      case 'challenge': return <ChallengeView />
-      case 'meditations': return <MeditationsView />
+      case 'challenge': return <EcoChallenge />
+      case 'meditations': return <Meditations />
+      case 'psychology': return <PsychologyCards />
       default: return <Dashboard />
     }
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background-page)' }}>
-      {/* Навигация */}
-      <Panel mode="primary">
-        <Container>
-          <Flex justify="between" align="center">
-            <Typography.Title variant="small">
-              {currentView === 'dashboard' ? 'Empath' : 
-               currentView === 'mood' ? 'Настроение' :
-               currentView === 'challenge' ? 'Челлендж' : 'Медитации'}
-            </Typography.Title>
-            
-            {currentView !== 'dashboard' && (
-              <Button
-                mode="tertiary"
-                appearance="themed"
-                onClick={() => setCurrentView('dashboard')}
-              >
-                Назад
-              </Button>
-            )}
-          </Flex>
-        </Container>
-      </Panel>
-
+    <div style={{ 
+      minHeight: '100vh', 
+      background: 'var(--background-page)',
+      paddingBottom: '80px' 
+    }}>
+      {/* Основной контент */}
       {renderView()}
 
       {/* Нижняя навигация */}
-      <Panel mode="primary">
+      <Panel 
+        mode="primary" 
+        style={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0,
+          borderTop: '1px solid var(--border-primary)'
+        }}
+      >
         <Container>
           <Grid cols={4} gap={8}>
             <ToolButton
               icon="📊"
               appearance={currentView === 'dashboard' ? 'secondary' : 'default'}
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => {
+                window.WebApp.HapticFeedback.selectionChanged()
+                setCurrentView('dashboard')
+              }}
             >
               Главная
             </ToolButton>
             <ToolButton
               icon="📝"
               appearance={currentView === 'mood' ? 'secondary' : 'default'}
-              onClick={() => setCurrentView('mood')}
+              onClick={() => {
+                window.WebApp.HapticFeedback.selectionChanged()
+                setCurrentView('mood')
+              }}
             >
               Настроение
             </ToolButton>
             <ToolButton
               icon="🌿"
               appearance={currentView === 'challenge' ? 'secondary' : 'default'}
-              onClick={() => setCurrentView('challenge')}
+              onClick={() => {
+                window.WebApp.HapticFeedback.selectionChanged()
+                setCurrentView('challenge')
+              }}
             >
               Челлендж
             </ToolButton>
             <ToolButton
               icon="🧘"
               appearance={currentView === 'meditations' ? 'secondary' : 'default'}
-              onClick={() => setCurrentView('meditations')}
+              onClick={() => {
+                window.WebApp.HapticFeedback.selectionChanged()
+                setCurrentView('meditations')
+              }}
             >
               Медитации
             </ToolButton>
