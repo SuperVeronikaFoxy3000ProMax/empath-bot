@@ -211,6 +211,9 @@ body {
     cursor: pointer;
     transition: background 0.2s ease;
     min-width: 60px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .tool-btn:active {
@@ -271,6 +274,9 @@ body {
     border-bottom: 1px solid var(--max-border);
     cursor: pointer;
     transition: background 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .cell-simple:active {
@@ -449,6 +455,9 @@ input:checked + .switch-slider:before {
     font-size: 24px;
     cursor: pointer;
     transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .mood-item:active {

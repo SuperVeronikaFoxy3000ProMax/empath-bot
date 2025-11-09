@@ -6,7 +6,6 @@ class EmpathApp {
         // ВАЖНО: Замените на реальный URL вашего бота API
         // Например: 'https://your-bot-api.com' или используйте переменную окружения
         this.apiBaseUrl = 'https://api.example.com';
-        this.handleClick = this.handleClick.bind(this);
         this.init();
     }
 
@@ -241,26 +240,38 @@ class EmpathApp {
     }
     
     attachEventListeners() {
-        // Привязываем обработчик только один раз на уровне document
+        // Привязываем обработчик только один раз
         if (this.eventListenersAttached) return;
         
-        document.addEventListener('click', this.handleClick);
+        // Используем делегирование событий на элементе app
+        const appElement = document.getElementById('app');
+        if (!appElement) {
+            // Если app еще не создан, попробуем позже
+            setTimeout(() => this.attachEventListeners(), 100);
+            return;
+        }
+        
+        // Привязываем обработчик к app элементу
+        appElement.addEventListener('click', (e) => {
+            this.handleClick(e);
+        });
+        
         this.eventListenersAttached = true;
     }
 
     handleClick(e) {
+        // Ищем элемент с data-action используя closest
         const target = e.target.closest('[data-action]');
-        if (!target) return;
         
-        // Проверяем, что клик был внутри app
-        const appElement = document.getElementById('app');
-        if (!appElement || !appElement.contains(target)) return;
+        if (!target) return;
         
         e.preventDefault();
         e.stopPropagation();
         
         const action = target.getAttribute('data-action');
         const params = target.getAttribute('data-params');
+        
+        console.log('Click detected:', action, params, target); // Для отладки
         
         try {
             if (action === 'navigate' && params) {
@@ -278,6 +289,7 @@ class EmpathApp {
             }
         } catch (error) {
             console.error('Ошибка при обработке клика:', error);
+            console.error(error.stack);
         }
     }
 
