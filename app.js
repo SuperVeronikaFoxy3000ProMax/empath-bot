@@ -125,6 +125,9 @@ class EmpathApp {
     }
 
     async init() {
+        // Привязываем обработчики событий сразу
+        this.attachEventListeners();
+        
         try {
             // Инициализация MAX Bridge
             if (window.WebApp) {
@@ -204,6 +207,10 @@ class EmpathApp {
 
     renderApp() {
         const appElement = document.getElementById('app');
+        if (!appElement) {
+            console.error('Элемент app не найден!');
+            return;
+        }
         
         switch (this.currentView) {
             case 'mood':
@@ -240,56 +247,116 @@ class EmpathApp {
     }
     
     attachEventListeners() {
-        // Привязываем обработчик только один раз
-        if (this.eventListenersAttached) return;
-        
-        // Используем делегирование событий на элементе app
-        const appElement = document.getElementById('app');
-        if (!appElement) {
-            // Если app еще не создан, попробуем позже
-            setTimeout(() => this.attachEventListeners(), 100);
+        // Привязываем обработчик только один раз на document
+        if (this.eventListenersAttached) {
+            console.log('Event listeners already attached');
             return;
         }
         
-        // Привязываем обработчик к app элементу
-        appElement.addEventListener('click', (e) => {
-            this.handleClick(e);
-        });
+        // Ждем загрузки DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.attachEventListeners();
+            });
+            return;
+        }
         
+        // Используем делегирование событий на document
+        const clickHandler = (e) => {
+            this.handleClick(e);
+        };
+        
+        document.addEventListener('click', clickHandler, true); // Используем capture phase
+        
+        // Также пробуем на body, если он существует
+        if (document.body) {
+            document.body.addEventListener('click', clickHandler, true);
+        }
+        
+        // И на window для надежности
+        window.addEventListener('click', clickHandler, true);
+        
+        console.log('Event listeners attached to document, body and window');
         this.eventListenersAttached = true;
     }
 
     handleClick(e) {
-        // Ищем элемент с data-action используя closest
-        const target = e.target.closest('[data-action]');
+        // Для отладки - выводим информацию о клике
+        console.log('Click event fired!', e.target, e.target.tagName);
         
-        if (!target) return;
+        // Ищем элемент с data-action используя closest
+        let target = e.target.closest('[data-action]');
+        
+        // Если не нашли через closest, проверяем сам элемент и его родители вручную
+        if (!target) {
+            let el = e.target;
+            while (el && el !== document.body) {
+                if (el.hasAttribute && el.hasAttribute('data-action')) {
+                    target = el;
+                    break;
+                }
+                el = el.parentElement;
+            }
+        }
+        
+        if (!target) {
+            console.log('No data-action found');
+            return;
+        }
+        
+        console.log('Found target with data-action:', target);
+        return this.processClick(target, e);
+    }
+
+    processClick(target, e) {
+        // Предотвращаем повторную обработку
+        if (e.processed) {
+            return;
+        }
+        e.processed = true;
+        
+        // Проверяем, что клик был внутри app
+        const appElement = document.getElementById('app');
+        if (!appElement || !appElement.contains(target)) {
+            console.log('Click outside app element');
+            return;
+        }
         
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         
         const action = target.getAttribute('data-action');
         const params = target.getAttribute('data-params');
         
-        console.log('Click detected:', action, params, target); // Для отладки
+        console.log('Processing click - action:', action, 'params:', params, 'target:', target); // Для отладки
         
         try {
             if (action === 'navigate' && params) {
+                console.log('Navigating to:', params);
                 this.navigateTo(params);
             } else if (action === 'selectMood' && params) {
+                console.log('Selecting mood:', params);
                 this.selectMood(params);
             } else if (action === 'startChallenge' && params) {
+                console.log('Starting challenge:', params);
                 this.startChallenge(parseInt(params));
             } else if (action === 'startMeditation' && params) {
+                console.log('Starting meditation:', params);
                 this.startMeditation(parseInt(params));
             } else if (action === 'showMoodStats') {
+                console.log('Showing mood stats');
                 this.showMoodStats();
             } else if (action === 'showMoodHistory') {
+                console.log('Showing mood history');
                 this.showMoodHistory();
+            } else {
+                console.warn('Unknown action:', action, 'params:', params);
             }
         } catch (error) {
             console.error('Ошибка при обработке клика:', error);
             console.error(error.stack);
+            alert('Ошибка: ' + error.message);
         }
     }
 
