@@ -6,6 +6,8 @@ class EmpathApp {
         // ВАЖНО: Замените на реальный URL вашего бота API
         // Например: 'https://your-bot-api.com' или используйте переменную окружения
         this.apiBaseUrl = 'https://api.example.com';
+        this.audioPlayer = null;
+        this.currentMeditation = null;
         this.init();
     }
 
@@ -234,6 +236,9 @@ class EmpathApp {
             case 'meditations':
                 appElement.innerHTML = this.renderMeditationsView();
                 break;
+            case 'meditationPlayer':
+                appElement.innerHTML = this.renderMeditationPlayer();
+                break;
             case 'knowledge':
                 appElement.innerHTML = this.renderKnowledgeBase();
                 break;
@@ -250,6 +255,11 @@ class EmpathApp {
         
         // Привязываем обработчики событий после рендера
         this.attachEventListeners();
+        
+        // Инициализируем аудио плеер для медитации, если нужно
+        if (this.currentView === 'meditationPlayer') {
+            setTimeout(() => this.initMeditationPlayer(), 100);
+        }
     }
     
     attachEventListeners() {
@@ -350,12 +360,21 @@ class EmpathApp {
             } else if (action === 'startMeditation' && params) {
                 console.log('Starting meditation:', params);
                 this.startMeditation(parseInt(params));
+            } else if (action === 'playMeditation') {
+                console.log('Playing meditation');
+                this.playMeditation();
+            } else if (action === 'stopMeditation') {
+                console.log('Stopping meditation');
+                this.stopMeditation();
             } else if (action === 'showMoodStats') {
                 console.log('Showing mood stats');
                 this.showMoodStats();
             } else if (action === 'showMoodHistory') {
                 console.log('Showing mood history');
                 this.showMoodHistory();
+            } else if (action === 'showKnowledge' && params) {
+                console.log('Showing knowledge:', params);
+                this.showKnowledge(parseInt(params));
             } else {
                 console.warn('Unknown action:', action, 'params:', params);
             }
@@ -818,6 +837,39 @@ class EmpathApp {
     }
 
     renderKnowledgeBase() {
+        const knowledgeItems = [
+            {
+                title: '🌱 Эко-осознанность',
+                content: 'Практика осознанности помогает снизить стресс и улучшить эмоциональное состояние. Начни с 5 минут медитации каждый день.',
+                tips: ['Дыши глубоко и медленно', 'Сосредоточься на настоящем моменте', 'Принимай свои эмоции без осуждения']
+            },
+            {
+                title: '💚 Забота о себе',
+                content: 'Регулярный уход за собой - это не эгоизм, а необходимость. Ты не можешь помочь другим, если сам истощен.',
+                tips: ['Выделяй время для отдыха', 'Слушай свое тело', 'Не бойся говорить "нет"']
+            },
+            {
+                title: '🌿 Экологичные привычки',
+                content: 'Маленькие шаги к экологичному образу жизни помогают не только планете, но и твоему внутреннему состоянию.',
+                tips: ['Используй многоразовые вещи', 'Сократи потребление', 'Поддерживай локальные инициативы']
+            },
+            {
+                title: '🧘 Управление стрессом',
+                content: 'Стресс - это нормальная реакция, но важно уметь с ним справляться. Регулярные практики помогают снизить уровень тревоги.',
+                tips: ['Практикуй дыхательные упражнения', 'Делай перерывы в работе', 'Общайся с близкими']
+            },
+            {
+                title: '💭 Эмоциональный интеллект',
+                content: 'Понимание своих эмоций - ключ к гармоничной жизни. Отслеживание настроения помогает находить закономерности.',
+                tips: ['Веди дневник настроения', 'Анализируй триггеры', 'Практикуй благодарность']
+            },
+            {
+                title: '🌍 Связь с природой',
+                content: 'Проведение времени на природе снижает уровень кортизола и улучшает настроение. Даже 20 минут в парке имеют значение.',
+                tips: ['Гуляй на свежем воздухе', 'Посади растение', 'Наблюдай за природой']
+            }
+        ];
+
         return `
             <div class="app-container">
                 <div class="panel primary">
@@ -826,18 +878,72 @@ class EmpathApp {
                             <div class="title">📚 База знаний</div>
                             <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
+                        <div class="body medium" style="margin-top: 8px;">
+                            Полезные памятки для гармоничной жизни
+                        </div>
                     </div>
                 </div>
                 <div class="panel secondary">
-                    <div class="container">
-                        <div class="body medium">
-                            Раздел в разработке...
-                        </div>
+                    <div class="cell-list island">
+                        ${knowledgeItems.map((item, index) => `
+                            <div class="cell-simple" data-action="showKnowledge" data-params="${index}">
+                                <div class="before">${item.title.split(' ')[0]}</div>
+                                <div class="content">
+                                    <div class="title">${item.title}</div>
+                                    <div class="subtitle">${item.content.substring(0, 60)}...</div>
+                                </div>
+                                <div class="chevron"></div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
                 ${this.renderNavigation()}
             </div>
         `;
+    }
+
+    showKnowledge(index) {
+        const knowledgeItems = [
+            {
+                title: '🌱 Эко-осознанность',
+                content: 'Практика осознанности помогает снизить стресс и улучшить эмоциональное состояние. Начни с 5 минут медитации каждый день.',
+                tips: ['Дыши глубоко и медленно', 'Сосредоточься на настоящем моменте', 'Принимай свои эмоции без осуждения']
+            },
+            {
+                title: '💚 Забота о себе',
+                content: 'Регулярный уход за собой - это не эгоизм, а необходимость. Ты не можешь помочь другим, если сам истощен.',
+                tips: ['Выделяй время для отдыха', 'Слушай свое тело', 'Не бойся говорить "нет"']
+            },
+            {
+                title: '🌿 Экологичные привычки',
+                content: 'Маленькие шаги к экологичному образу жизни помогают не только планете, но и твоему внутреннему состоянию.',
+                tips: ['Используй многоразовые вещи', 'Сократи потребление', 'Поддерживай локальные инициативы']
+            },
+            {
+                title: '🧘 Управление стрессом',
+                content: 'Стресс - это нормальная реакция, но важно уметь с ним справляться. Регулярные практики помогают снизить уровень тревоги.',
+                tips: ['Практикуй дыхательные упражнения', 'Делай перерывы в работе', 'Общайся с близкими']
+            },
+            {
+                title: '💭 Эмоциональный интеллект',
+                content: 'Понимание своих эмоций - ключ к гармоничной жизни. Отслеживание настроения помогает находить закономерности.',
+                tips: ['Веди дневник настроения', 'Анализируй триггеры', 'Практикуй благодарность']
+            },
+            {
+                title: '🌍 Связь с природой',
+                content: 'Проведение времени на природе снижает уровень кортизола и улучшает настроение. Даже 20 минут в парке имеют значение.',
+                tips: ['Гуляй на свежем воздухе', 'Посади растение', 'Наблюдай за природой']
+            }
+        ];
+
+        const item = knowledgeItems[index];
+        if (!item) return;
+
+        if (window.WebApp) {
+            window.WebApp.showAlert(`${item.title}\n\n${item.content}\n\nСоветы:\n${item.tips.map(t => '• ' + t).join('\n')}`);
+        } else {
+            alert(`${item.title}\n\n${item.content}\n\nСоветы:\n${item.tips.map(t => '• ' + t).join('\n')}`);
+        }
     }
 
     renderSettings() {
@@ -1052,14 +1158,21 @@ class EmpathApp {
     getWeekMoodData(moods) {
         const weekData = Array(7).fill(null).map(() => ({ count: 0, sum: 0, avg: 0 }));
         const now = new Date();
-        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dayOfWeek = today.getDay();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Понедельник
         startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        endOfWeek.setHours(23, 59, 59, 999);
 
         moods.forEach(mood => {
             const moodDate = new Date(mood.date);
-            if (moodDate >= startOfWeek) {
-                const dayIndex = (moodDate.getDay() + 6) % 7; // Понедельник = 0
-                if (dayIndex < 7) {
+            if (moodDate >= startOfWeek && moodDate < endOfWeek) {
+                const dayIndex = (moodDate.getDay() + 6) % 7; // Понедельник = 0, Воскресенье = 6
+                if (dayIndex >= 0 && dayIndex < 7) {
                     weekData[dayIndex].count++;
                     weekData[dayIndex].sum += mood.value;
                     weekData[dayIndex].avg = weekData[dayIndex].sum / weekData[dayIndex].count;
@@ -1116,11 +1229,19 @@ class EmpathApp {
             challenges.push(challenge);
         }
 
-        // Отмечаем как завершенный
-        if (!challenge.completed) {
-            challenge.completed = true;
-            challenge.completedDate = new Date().toISOString();
+        // Если уже завершен, просто показываем информацию
+        if (challenge.completed) {
+            if (window.WebApp) {
+                window.WebApp.showAlert(`Челлендж дня ${day} уже завершен!`);
+            } else {
+                alert(`Челлендж дня ${day} уже завершен!`);
+            }
+            return;
         }
+
+        // Отмечаем как завершенный
+        challenge.completed = true;
+        challenge.completedDate = new Date().toISOString();
 
         this.saveLocalChallenges(challenges);
 
@@ -1142,48 +1263,73 @@ class EmpathApp {
         }
 
         const meditations = [
-            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep' },
-            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety' },
-            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax' },
-            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus' }
+            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep', file: 'meditations/sleep.mp3' },
+            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety', file: 'meditations/anxiety.mp3' },
+            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax', file: 'meditations/relax.mp3' },
+            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus', file: 'meditations/relax.mp3' } // Используем relax для focus
         ];
 
         const meditation = meditations.find(m => m.id === id);
         if (!meditation) return;
 
-        // Запускаем медитацию (здесь можно добавить реальный плеер)
-        if (window.WebApp) {
-            window.WebApp.showAlert(`Медитация "${meditation.name}" запускается...`);
-        } else {
-            alert(`Медитация "${meditation.name}" запускается...`);
+        // Останавливаем предыдущую медитацию, если она играет
+        if (this.audioPlayer) {
+            this.audioPlayer.pause();
+            this.audioPlayer = null;
         }
 
-        // Симулируем завершение медитации через заданное время
-        setTimeout(async () => {
-            const meditationEntry = {
-                meditationId: id,
-                name: meditation.name,
-                duration: meditation.duration * 60, // в секундах
-                type: meditation.type,
-                date: new Date().toISOString(),
-                timestamp: Date.now()
-            };
+        // Переходим на экран медитации
+        this.currentMeditation = meditation;
+        this.navigateTo('meditationPlayer');
+    }
 
-            // Сохраняем локально
-            const savedMeditations = this.getLocalMeditations();
-            savedMeditations.push(meditationEntry);
-            this.saveLocalMeditations(savedMeditations);
+    renderMeditationPlayer() {
+        if (!this.currentMeditation) {
+            this.navigateTo('meditations');
+            return '';
+        }
 
-            // Отправляем на сервер
-            await this.sendToBot('/meditation', { meditation: meditationEntry });
+        const meditation = this.currentMeditation;
+        const isPlaying = this.audioPlayer && !this.audioPlayer.paused;
 
-            if (window.WebApp) {
-                window.WebApp.showAlert('Медитация завершена!');
-            }
+        return `
+            <div class="app-container">
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">${meditation.name}</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="meditations">Назад</button>
+                        </div>
+                        <div class="body medium" style="margin-top: 8px;">
+                            Длительность: ${meditation.duration} минут
+                        </div>
+                    </div>
+                </div>
 
-            // Обновляем отображение
-            this.renderApp();
-        }, meditation.duration * 1000); // Для демо используем реальное время, в продакшене это будет управляться плеером
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="flex column center gap-24" style="padding: 40px 0;">
+                            <div style="font-size: 64px;">${meditation.id === 1 ? '💤' : meditation.id === 2 ? '🌪️' : meditation.id === 3 ? '🌊' : '🎯'}</div>
+                            <div class="headline">${meditation.name}</div>
+                            <audio id="meditationAudio" src="${meditation.file}" preload="auto"></audio>
+                            <div class="flex gap-16">
+                                <button class="btn primary" data-action="playMeditation" style="min-width: 120px;">
+                                    ${isPlaying ? '⏸️ Пауза' : '▶️ Играть'}
+                                </button>
+                                <button class="btn secondary" data-action="stopMeditation" style="min-width: 120px;">
+                                    ⏹️ Стоп
+                                </button>
+                            </div>
+                            <div id="meditationProgress" class="body medium" style="margin-top: 16px;">
+                                Готово к воспроизведению
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                ${this.renderNavigation()}
+            </div>
+        `;
     }
 
     showMoodStats() {
@@ -1198,6 +1344,95 @@ class EmpathApp {
             window.WebApp.HapticFeedback.notificationOccurred('success');
         }
         this.navigateTo('moodHistory');
+    }
+
+    initMeditationPlayer() {
+        const audioElement = document.getElementById('meditationAudio');
+        if (audioElement && !this.audioPlayer) {
+            this.audioPlayer = audioElement;
+            this.audioPlayer.addEventListener('timeupdate', () => {
+                this.updateMeditationProgress();
+            });
+            this.audioPlayer.addEventListener('ended', () => {
+                this.onMeditationEnded();
+            });
+        }
+    }
+
+    playMeditation() {
+        if (!this.audioPlayer) {
+            this.initMeditationPlayer();
+        }
+        
+        if (this.audioPlayer) {
+            if (this.audioPlayer.paused) {
+                this.audioPlayer.play().catch(err => {
+                    console.error('Ошибка воспроизведения:', err);
+                    alert('Не удалось воспроизвести медитацию. Проверьте файл.');
+                });
+            } else {
+                this.audioPlayer.pause();
+            }
+            this.renderApp();
+        }
+    }
+
+    stopMeditation() {
+        if (this.audioPlayer) {
+            this.audioPlayer.pause();
+            this.audioPlayer.currentTime = 0;
+            this.renderApp();
+        }
+    }
+
+    updateMeditationProgress() {
+        if (!this.audioPlayer) return;
+        
+        const progressElement = document.getElementById('meditationProgress');
+        if (progressElement) {
+            const current = Math.floor(this.audioPlayer.currentTime);
+            const duration = Math.floor(this.audioPlayer.duration || 0);
+            const minutes = Math.floor(current / 60);
+            const seconds = current % 60;
+            const totalMinutes = Math.floor(duration / 60);
+            const totalSeconds = duration % 60;
+            
+            if (duration > 0) {
+                progressElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+            }
+        }
+    }
+
+    async onMeditationEnded() {
+        if (!this.currentMeditation) return;
+
+        const meditationEntry = {
+            meditationId: this.currentMeditation.id,
+            name: this.currentMeditation.name,
+            duration: this.currentMeditation.duration * 60, // в секундах
+            type: this.currentMeditation.type,
+            date: new Date().toISOString(),
+            timestamp: Date.now()
+        };
+
+        // Сохраняем локально
+        const savedMeditations = this.getLocalMeditations();
+        savedMeditations.push(meditationEntry);
+        this.saveLocalMeditations(savedMeditations);
+
+        // Отправляем на сервер
+        await this.sendToBot('/meditation', { meditation: meditationEntry });
+
+        if (window.WebApp) {
+            window.WebApp.showAlert('Медитация завершена!');
+        } else {
+            alert('Медитация завершена!');
+        }
+
+        // Возвращаемся к списку медитаций
+        this.currentMeditation = null;
+        this.audioPlayer = null;
+        this.navigateTo('meditations');
     }
 }
 
