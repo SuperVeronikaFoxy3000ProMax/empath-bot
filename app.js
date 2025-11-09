@@ -6,6 +6,7 @@ class EmpathApp {
         // ВАЖНО: Замените на реальный URL вашего бота API
         // Например: 'https://your-bot-api.com' или используйте переменную окружения
         this.apiBaseUrl = 'https://api.example.com';
+        this.handleClick = this.handleClick.bind(this);
         this.init();
     }
 
@@ -185,6 +186,7 @@ class EmpathApp {
     }
 
     navigateTo(view) {
+        const previousView = this.currentView;
         this.currentView = view;
         
         // Управляем кнопкой назад
@@ -196,7 +198,7 @@ class EmpathApp {
         this.renderApp();
         
         // Тактильная обратная связь
-        if (window.WebApp && view !== this.currentView) {
+        if (window.WebApp && view !== previousView) {
             window.WebApp.HapticFeedback.impactOccurred('light');
         }
     }
@@ -239,43 +241,44 @@ class EmpathApp {
     }
     
     attachEventListeners() {
-        // Привязываем обработчик только один раз
+        // Привязываем обработчик только один раз на уровне document
         if (this.eventListenersAttached) return;
         
-        const appElement = document.getElementById('app');
-        if (!appElement) return;
-        
-        // Используем делегирование событий для всех кликов
-        appElement.addEventListener('click', (e) => {
-            const target = e.target.closest('[data-action]');
-            if (!target) return;
-            
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const action = target.getAttribute('data-action');
-            const params = target.getAttribute('data-params');
-            
-            try {
-                if (action === 'navigate' && params) {
-                    this.navigateTo(params);
-                } else if (action === 'selectMood' && params) {
-                    this.selectMood(params);
-                } else if (action === 'startChallenge' && params) {
-                    this.startChallenge(parseInt(params));
-                } else if (action === 'startMeditation' && params) {
-                    this.startMeditation(parseInt(params));
-                } else if (action === 'showMoodStats') {
-                    this.showMoodStats();
-                } else if (action === 'showMoodHistory') {
-                    this.showMoodHistory();
-                }
-            } catch (error) {
-                console.error('Ошибка при обработке клика:', error);
-            }
-        });
-        
+        document.addEventListener('click', this.handleClick);
         this.eventListenersAttached = true;
+    }
+
+    handleClick(e) {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        
+        // Проверяем, что клик был внутри app
+        const appElement = document.getElementById('app');
+        if (!appElement || !appElement.contains(target)) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const action = target.getAttribute('data-action');
+        const params = target.getAttribute('data-params');
+        
+        try {
+            if (action === 'navigate' && params) {
+                this.navigateTo(params);
+            } else if (action === 'selectMood' && params) {
+                this.selectMood(params);
+            } else if (action === 'startChallenge' && params) {
+                this.startChallenge(parseInt(params));
+            } else if (action === 'startMeditation' && params) {
+                this.startMeditation(parseInt(params));
+            } else if (action === 'showMoodStats') {
+                this.showMoodStats();
+            } else if (action === 'showMoodHistory') {
+                this.showMoodHistory();
+            }
+        } catch (error) {
+            console.error('Ошибка при обработке клика:', error);
+        }
     }
 
     renderDashboard() {
