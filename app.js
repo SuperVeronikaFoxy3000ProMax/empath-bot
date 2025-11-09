@@ -8,6 +8,8 @@ class EmpathApp {
         this.apiBaseUrl = 'https://api.example.com';
         this.audioPlayer = null;
         this.currentMeditation = null;
+        this.currentKnowledgeItem = null;
+        this.currentChallenge = null;
         this.init();
     }
 
@@ -242,6 +244,12 @@ class EmpathApp {
             case 'knowledge':
                 appElement.innerHTML = this.renderKnowledgeBase();
                 break;
+            case 'knowledgeDetail':
+                appElement.innerHTML = this.renderKnowledgeDetail();
+                break;
+            case 'challengeDetail':
+                appElement.innerHTML = this.renderChallengeDetail();
+                break;
             case 'settings':
                 appElement.innerHTML = this.renderSettings();
                 break;
@@ -357,6 +365,9 @@ class EmpathApp {
             } else if (action === 'startChallenge' && params) {
                 console.log('Starting challenge:', params);
                 this.startChallenge(parseInt(params));
+            } else if (action === 'showChallengeDetail' && params) {
+                console.log('Showing challenge detail:', params);
+                this.showChallengeDetail(parseInt(params));
             } else if (action === 'startMeditation' && params) {
                 console.log('Starting meditation:', params);
                 this.startMeditation(parseInt(params));
@@ -644,7 +655,7 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="cell-list island">
                         ${challenges.map(challenge => `
-                            <div class="cell-simple" data-action="startChallenge" data-params="${challenge.day}">
+                            <div class="cell-simple" data-action="showChallengeDetail" data-params="${challenge.day}">
                                 <div class="before">${challenge.completed ? '✅' : '📅'}</div>
                                 <div class="content">
                                     <div class="title">День ${challenge.day}: ${challenge.title}</div>
@@ -655,7 +666,7 @@ class EmpathApp {
                                         </div>
                                     ` : ''}
                                 </div>
-                                ${!challenge.completed ? '<div class="chevron"></div>' : ''}
+                                <div class="chevron"></div>
                             </div>
                         `).join('')}
                     </div>
@@ -939,11 +950,57 @@ class EmpathApp {
         const item = knowledgeItems[index];
         if (!item) return;
 
-        if (window.WebApp) {
-            window.WebApp.showAlert(`${item.title}\n\n${item.content}\n\nСоветы:\n${item.tips.map(t => '• ' + t).join('\n')}`);
-        } else {
-            alert(`${item.title}\n\n${item.content}\n\nСоветы:\n${item.tips.map(t => '• ' + t).join('\n')}`);
+        // Показываем детальный экран знания
+        this.currentKnowledgeItem = item;
+        this.navigateTo('knowledgeDetail');
+    }
+
+    renderKnowledgeDetail() {
+        if (!this.currentKnowledgeItem) {
+            this.navigateTo('knowledge');
+            return '';
         }
+
+        const item = this.currentKnowledgeItem;
+
+        return `
+            <div class="app-container">
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">${item.title}</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="knowledge">Назад</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="body medium" style="margin-bottom: 24px; line-height: 1.6;">
+                            ${item.content}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 16px;">💡 Практические советы</div>
+                        <div class="cell-list island">
+                            ${item.tips.map((tip, idx) => `
+                                <div class="cell-simple">
+                                    <div class="before">${idx + 1}</div>
+                                    <div class="content">
+                                        <div class="title">${tip}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                ${this.renderNavigation()}
+            </div>
+        `;
     }
 
     renderSettings() {
@@ -1016,10 +1073,13 @@ class EmpathApp {
         await this.sendToBot('/mood', { mood: moodEntry });
 
         // Показываем уведомление
-        if (window.WebApp) {
-            window.WebApp.showAlert('Настроение сохранено!');
+        const message = 'Настроение сохранено!';
+        if (window.WebApp && window.WebApp.showPopup) {
+            window.WebApp.showPopup({ title: 'Успех', message: message, buttons: [{ type: 'ok' }] });
+        } else if (window.WebApp && window.WebApp.showAlert) {
+            window.WebApp.showAlert(message);
         } else {
-            alert(`Настроение ${emoji} сохранено!`);
+            alert(message);
         }
 
         // Обновляем отображение
@@ -1212,6 +1272,135 @@ class EmpathApp {
         return labels[value] || 'Неизвестно';
     }
 
+    showChallengeDetail(day) {
+        if (window.WebApp) {
+            window.WebApp.HapticFeedback.impactOccurred('light');
+        }
+
+        const defaultChallenges = [
+            { 
+                day: 1, 
+                title: 'Детокс от шума', 
+                description: 'День без тревожных новостей',
+                details: 'Сегодня откажись от просмотра новостей и социальных сетей. Вместо этого проведи время на природе, почитай книгу или займись творчеством. Это поможет снизить уровень стресса и тревоги.',
+                tips: ['Отключи уведомления на телефоне', 'Проведи время на свежем воздухе', 'Займись медитацией или йогой', 'Почитай вдохновляющую книгу']
+            },
+            { 
+                day: 2, 
+                title: 'Меньше = легче', 
+                description: '3 простых эко-действия',
+                details: 'Сделай три простых шага для заботы о планете: используй многоразовую бутылку для воды, откажись от одноразовых пакетов и выключи свет, когда не используешь его. Маленькие действия имеют большое значение.',
+                tips: ['Используй многоразовую бутылку', 'Откажись от одноразовых пакетов', 'Выключай свет при выходе', 'Сортируй мусор']
+            },
+            { 
+                day: 3, 
+                title: 'Цифровой отдых', 
+                description: '2 часа без телефона',
+                details: 'Выдели 2 часа в день без телефона и других устройств. Проведи это время в общении с близкими, на природе или за любимым хобби. Это поможет восстановить ментальное равновесие.',
+                tips: ['Положи телефон в другую комнату', 'Проведи время с близкими', 'Займись физической активностью', 'Попробуй новое хобби']
+            },
+            { 
+                day: 4, 
+                title: 'Эко-день для души', 
+                description: 'Практики осознанности',
+                details: 'Практикуй осознанность через связь с природой. Посади растение, прогуляйся в парке или просто понаблюдай за природой. Это поможет почувствовать связь с окружающим миром.',
+                tips: ['Посади комнатное растение', 'Погуляй в парке или лесу', 'Понаблюдай за птицами или животными', 'Практикуй медитацию на природе']
+            },
+            { 
+                day: 5, 
+                title: 'Поделись добром', 
+                description: 'Поддержка других',
+                details: 'Сделай что-то доброе для других: помоги соседу, сделай комплимент незнакомцу, пожертвуй на благотворительность или просто выслушай друга. Забота о других наполняет нас энергией.',
+                tips: ['Помоги кому-то безвозмездно', 'Сделай комплимент незнакомцу', 'Пожертвуй на благотворительность', 'Выслушай друга или близкого']
+            }
+        ];
+
+        const challengeTemplate = defaultChallenges.find(c => c.day === day);
+        if (!challengeTemplate) return;
+
+        const savedChallenges = this.getLocalChallenges();
+        const savedChallenge = savedChallenges.find(c => c.day === day);
+
+        this.currentChallenge = {
+            ...challengeTemplate,
+            completed: savedChallenge?.completed || false,
+            completedDate: savedChallenge?.completedDate,
+            startDate: savedChallenge?.startDate
+        };
+
+        this.navigateTo('challengeDetail');
+    }
+
+    renderChallengeDetail() {
+        if (!this.currentChallenge) {
+            this.navigateTo('challenge');
+            return '';
+        }
+
+        const challenge = this.currentChallenge;
+
+        return `
+            <div class="app-container">
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">День ${challenge.day}: ${challenge.title}</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="challenge">Назад</button>
+                        </div>
+                        <div class="body medium" style="margin-top: 8px;">
+                            ${challenge.description}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">📋 Описание</div>
+                        <div class="body medium" style="line-height: 1.6;">
+                            ${challenge.details}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 16px;">💡 Практические шаги</div>
+                        <div class="cell-list island">
+                            ${challenge.tips.map((tip, idx) => `
+                                <div class="cell-simple">
+                                    <div class="before">${idx + 1}</div>
+                                    <div class="content">
+                                        <div class="title">${tip}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                ${challenge.completed ? `
+                    <div class="panel secondary">
+                        <div class="container">
+                            <div class="body medium" style="text-align: center; padding: 16px;">
+                                ✅ Челлендж завершен ${challenge.completedDate ? new Date(challenge.completedDate).toLocaleDateString('ru-RU') : ''}
+                            </div>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="panel secondary">
+                        <div class="container">
+                            <button class="btn primary" data-action="startChallenge" data-params="${challenge.day}" style="width: 100%;">
+                                ✅ Завершить челлендж
+                            </button>
+                        </div>
+                    </div>
+                `}
+
+                ${this.renderNavigation()}
+            </div>
+        `;
+    }
+
     async startChallenge(day) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('light');
@@ -1231,10 +1420,11 @@ class EmpathApp {
 
         // Если уже завершен, просто показываем информацию
         if (challenge.completed) {
-            if (window.WebApp) {
-                window.WebApp.showAlert(`Челлендж дня ${day} уже завершен!`);
+            const message = `Челлендж дня ${day} уже завершен!`;
+            if (window.WebApp && window.WebApp.showPopup) {
+                window.WebApp.showPopup({ title: 'Информация', message: message, buttons: [{ type: 'ok' }] });
             } else {
-                alert(`Челлендж дня ${day} уже завершен!`);
+                alert(message);
             }
             return;
         }
@@ -1248,10 +1438,17 @@ class EmpathApp {
         // Отправляем на сервер
         await this.sendToBot('/challenge', { challenge: challenge });
 
-        if (window.WebApp) {
-            window.WebApp.showAlert('Челлендж завершен!');
+        const successMessage = 'Челлендж завершен!';
+        if (window.WebApp && window.WebApp.showPopup) {
+            window.WebApp.showPopup({ title: 'Успех', message: successMessage, buttons: [{ type: 'ok' }] });
         } else {
-            alert('Челлендж завершен!');
+            alert(successMessage);
+        }
+
+        // Обновляем текущий челлендж и перерисовываем
+        if (this.currentChallenge && this.currentChallenge.day === day) {
+            this.currentChallenge.completed = true;
+            this.currentChallenge.completedDate = challenge.completedDate;
         }
 
         this.renderApp();
@@ -1423,11 +1620,14 @@ class EmpathApp {
         // Отправляем на сервер
         await this.sendToBot('/meditation', { meditation: meditationEntry });
 
-        if (window.WebApp) {
-            window.WebApp.showAlert('Медитация завершена!');
-        } else {
-            alert('Медитация завершена!');
-        }
+            const message = 'Медитация завершена!';
+            if (window.WebApp && window.WebApp.showPopup) {
+                window.WebApp.showPopup({ title: 'Успех', message: message, buttons: [{ type: 'ok' }] });
+            } else if (window.WebApp && window.WebApp.showAlert) {
+                window.WebApp.showAlert(message);
+            } else {
+                alert(message);
+            }
 
         // Возвращаемся к списку медитаций
         this.currentMeditation = null;
