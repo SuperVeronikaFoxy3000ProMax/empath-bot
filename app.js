@@ -147,10 +147,12 @@ class EmpathApp {
         window.WebApp.ready();
 
         // Настраиваем кнопку назад
-        window.WebApp.BackButton.isVisible = false;
-        window.WebApp.BackButton.onClick(() => {
-            this.handleBackButton();
-        });
+        if (window.WebApp.BackButton) {
+            window.WebApp.BackButton.hide();
+            window.WebApp.BackButton.onClick(() => {
+                this.handleBackButton();
+            });
+        }
 
         // Подписываемся на события
         window.WebApp.onEvent('viewportChanged', (params) => {
@@ -192,9 +194,13 @@ class EmpathApp {
         this.currentView = view;
         
         // Управляем кнопкой назад
-        if (window.WebApp) {
+        if (window.WebApp && window.WebApp.BackButton) {
             const mainViews = ['dashboard', 'mood', 'challenge', 'meditations', 'knowledge', 'settings'];
-            window.WebApp.BackButton.isVisible = !mainViews.includes(view);
+            if (mainViews.includes(view)) {
+                window.WebApp.BackButton.hide();
+            } else {
+                window.WebApp.BackButton.show();
+            }
         }
 
         this.renderApp();
