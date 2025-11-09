@@ -3,7 +3,125 @@ class EmpathApp {
         this.currentView = 'dashboard';
         this.userData = null;
         this.eventListenersAttached = false;
+        // ВАЖНО: Замените на реальный URL вашего бота API
+        // Например: 'https://your-bot-api.com' или используйте переменную окружения
+        this.apiBaseUrl = 'https://api.example.com';
         this.init();
+    }
+
+    // Методы работы с данными
+    async loadData() {
+        try {
+            // Загружаем из localStorage
+            const localMoods = this.getLocalMoods();
+            const localChallenges = this.getLocalChallenges();
+            const localMeditations = this.getLocalMeditations();
+
+            // Синхронизируем с ботом
+            if (this.userData?.userId) {
+                await this.syncWithBot();
+            }
+
+            return {
+                moods: this.getLocalMoods(),
+                challenges: this.getLocalChallenges(),
+                meditations: this.getLocalMeditations()
+            };
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+            return {
+                moods: this.getLocalMoods(),
+                challenges: this.getLocalChallenges(),
+                meditations: this.getLocalMeditations()
+            };
+        }
+    }
+
+    getLocalMoods() {
+        const stored = localStorage.getItem('empath_moods');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveLocalMoods(moods) {
+        localStorage.setItem('empath_moods', JSON.stringify(moods));
+    }
+
+    getLocalChallenges() {
+        const stored = localStorage.getItem('empath_challenges');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveLocalChallenges(challenges) {
+        localStorage.setItem('empath_challenges', JSON.stringify(challenges));
+    }
+
+    getLocalMeditations() {
+        const stored = localStorage.getItem('empath_meditations');
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveLocalMeditations(meditations) {
+        localStorage.setItem('empath_meditations', JSON.stringify(meditations));
+    }
+
+    // API методы для синхронизации с ботом
+    async syncWithBot() {
+        if (!this.userData?.userId) return;
+
+        try {
+            // Отправляем данные на сервер
+            const moods = this.getLocalMoods();
+            const challenges = this.getLocalChallenges();
+            const meditations = this.getLocalMeditations();
+
+            const response = await fetch(`${this.apiBaseUrl}/sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: this.userData.userId,
+                    moods: moods,
+                    challenges: challenges,
+                    meditations: meditations
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Обновляем локальные данные данными с сервера
+                if (data.moods) this.saveLocalMoods(data.moods);
+                if (data.challenges) this.saveLocalChallenges(data.challenges);
+                if (data.meditations) this.saveLocalMeditations(data.meditations);
+            }
+        } catch (error) {
+            console.error('Ошибка синхронизации с ботом:', error);
+            // Продолжаем работу с локальными данными
+        }
+    }
+
+    async sendToBot(endpoint, data) {
+        if (!this.userData?.userId) return;
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: this.userData.userId,
+                    ...data
+                })
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.error(`Ошибка отправки данных на ${endpoint}:`, error);
+        }
+        return null;
     }
 
     async init() {
@@ -26,7 +144,7 @@ class EmpathApp {
         window.WebApp.ready();
 
         // Настраиваем кнопку назад
-        window.WebApp.BackButton.hide();
+        window.WebApp.BackButton.isVisible = false;
         window.WebApp.BackButton.onClick(() => {
             this.handleBackButton();
         });
@@ -48,11 +166,16 @@ class EmpathApp {
         // Включаем подтверждение закрытия
         window.WebApp.enableClosingConfirmation();
 
+        // Загружаем данные
+        await this.loadData();
+
         this.renderApp();
     }
 
     handleBackButton() {
-        if (this.currentView !== 'dashboard') {
+        if (this.currentView === 'moodStats' || this.currentView === 'moodHistory') {
+            this.navigateTo('mood');
+        } else if (this.currentView !== 'dashboard') {
             this.navigateTo('dashboard');
         }
     }
@@ -66,11 +189,8 @@ class EmpathApp {
         
         // Управляем кнопкой назад
         if (window.WebApp) {
-            if (view !== 'dashboard') {
-                window.WebApp.BackButton.show();
-            } else {
-                window.WebApp.BackButton.hide();
-            }
+            const mainViews = ['dashboard', 'mood', 'challenge', 'meditations', 'knowledge', 'settings'];
+            window.WebApp.BackButton.isVisible = !mainViews.includes(view);
         }
 
         this.renderApp();
@@ -87,6 +207,12 @@ class EmpathApp {
         switch (this.currentView) {
             case 'mood':
                 appElement.innerHTML = this.renderMoodTracker();
+                break;
+            case 'moodStats':
+                appElement.innerHTML = this.renderMoodStats();
+                break;
+            case 'moodHistory':
+                appElement.innerHTML = this.renderMoodHistory();
                 break;
             case 'challenge':
                 appElement.innerHTML = this.renderChallengeView();
@@ -153,6 +279,18 @@ class EmpathApp {
     }
 
     renderDashboard() {
+        const moods = this.getLocalMoods();
+        const challenges = this.getLocalChallenges();
+        const meditations = this.getLocalMeditations();
+        
+        const completedChallenges = challenges.filter(c => c.completed).length;
+        const totalMeditationTime = meditations.reduce((sum, m) => sum + (m.duration || 0), 0);
+        const meditationMinutes = Math.floor(totalMeditationTime / 60);
+        const meditationHours = Math.floor(meditationMinutes / 60);
+        const meditationTimeStr = meditationHours > 0 
+            ? `${meditationHours}ч ${meditationMinutes % 60}м` 
+            : `${meditationMinutes}м`;
+
         return `
             <div class="app-container">
                 <!-- Заголовок -->
@@ -211,16 +349,7 @@ class EmpathApp {
                                 <div class="title">Записей в дневнике</div>
                             </div>
                             <div class="after">
-                                <div class="counter">7</div>
-                            </div>
-                        </div>
-                        <div class="cell-simple">
-                            <div class="before">📚</div>
-                            <div class="content">
-                                <div class="title">Прочитано карточек</div>
-                            </div>
-                            <div class="after">
-                                <div class="counter">3</div>
+                                <div class="counter">${moods.length}</div>
                             </div>
                         </div>
                         <div class="cell-simple">
@@ -229,7 +358,16 @@ class EmpathApp {
                                 <div class="title">Завершено челленджей</div>
                             </div>
                             <div class="after">
-                                <div class="counter">2</div>
+                                <div class="counter">${completedChallenges}</div>
+                            </div>
+                        </div>
+                        <div class="cell-simple">
+                            <div class="before">🧘</div>
+                            <div class="content">
+                                <div class="title">Время медитаций</div>
+                            </div>
+                            <div class="after">
+                                <div class="counter">${meditationTimeStr}</div>
                             </div>
                         </div>
                     </div>
@@ -319,13 +457,32 @@ class EmpathApp {
     }
 
     renderChallengeView() {
-        const challenges = [
-            { day: 1, title: 'Детокс от шума', description: 'День без тревожных новостей', completed: true },
-            { day: 2, title: 'Меньше = легче', description: '3 простых эко-действия', completed: true },
-            { day: 3, title: 'Цифровой отдых', description: '2 часа без телефона', completed: false },
-            { day: 4, title: 'Эко-день для души', description: 'Практики осознанности', completed: false },
-            { day: 5, title: 'Поделись добром', description: 'Поддержка других', completed: false }
+        const defaultChallenges = [
+            { day: 1, title: 'Детокс от шума', description: 'День без тревожных новостей' },
+            { day: 2, title: 'Меньше = легче', description: '3 простых эко-действия' },
+            { day: 3, title: 'Цифровой отдых', description: '2 часа без телефона' },
+            { day: 4, title: 'Эко-день для души', description: 'Практики осознанности' },
+            { day: 5, title: 'Поделись добром', description: 'Поддержка других' }
         ];
+
+        const savedChallenges = this.getLocalChallenges();
+        const challenges = defaultChallenges.map(ch => {
+            const saved = savedChallenges.find(sc => sc.day === ch.day);
+            return {
+                ...ch,
+                completed: saved?.completed || false,
+                completedDate: saved?.completedDate,
+                startDate: saved?.startDate
+            };
+        });
+
+        const completedCount = challenges.filter(c => c.completed).length;
+        const progressPercent = (completedCount / challenges.length) * 100;
+
+        // Статистика
+        const totalChallenges = savedChallenges.filter(c => c.completed).length;
+        const streakDays = this.calculateChallengeStreak(savedChallenges);
+        const thisWeekChallenges = this.getThisWeekChallenges(savedChallenges);
 
         return `
             <div class="app-container">
@@ -347,10 +504,31 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between" style="margin-bottom: 8px;">
                             <div class="body medium">Прогресс недели</div>
-                            <div class="caption">2/5 завершено</div>
+                            <div class="caption">${completedCount}/${challenges.length} завершено</div>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" style="width: 40%"></div>
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">📊 Статистика</div>
+                        <div class="grid cols-3 gap-12">
+                            <div class="flex column center">
+                                <div class="title">${totalChallenges}</div>
+                                <div class="caption" style="text-align: center;">Всего завершено</div>
+                            </div>
+                            <div class="flex column center">
+                                <div class="title">${streakDays}</div>
+                                <div class="caption" style="text-align: center;">Дней подряд</div>
+                            </div>
+                            <div class="flex column center">
+                                <div class="title">${thisWeekChallenges}</div>
+                                <div class="caption" style="text-align: center;">На этой неделе</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -364,6 +542,11 @@ class EmpathApp {
                                 <div class="content">
                                     <div class="title">День ${challenge.day}: ${challenge.title}</div>
                                     <div class="subtitle">${challenge.description}</div>
+                                    ${challenge.completedDate ? `
+                                        <div class="caption" style="margin-top: 4px;">
+                                            Завершено: ${new Date(challenge.completedDate).toLocaleDateString('ru-RU')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                                 ${!challenge.completed ? '<div class="chevron"></div>' : ''}
                             </div>
@@ -377,16 +560,16 @@ class EmpathApp {
                         <div class="headline" style="margin-bottom: 12px;">🏆 Награды</div>
                         <div class="grid cols-3 gap-12">
                             <div class="flex column center gap-4">
-                                <div style="font-size: 24px;">🌱</div>
-                                <div class="caption" style="text-align: center;">Семечко роста</div>
+                                <div style="font-size: 24px; ${completedCount >= 1 ? '' : 'opacity: 0.3;'}">🌱</div>
+                                <div class="caption" style="text-align: center; ${completedCount >= 1 ? '' : 'opacity: 0.3;'}">Семечко роста</div>
                             </div>
                             <div class="flex column center gap-4">
-                                <div style="font-size: 24px; opacity: 0.3;">💪</div>
-                                <div class="caption" style="text-align: center; opacity: 0.3;">Стойкий солдатик</div>
+                                <div style="font-size: 24px; ${completedCount >= 3 ? '' : 'opacity: 0.3;'}">💪</div>
+                                <div class="caption" style="text-align: center; ${completedCount >= 3 ? '' : 'opacity: 0.3;'}">Стойкий солдатик</div>
                             </div>
                             <div class="flex column center gap-4">
-                                <div style="font-size: 24px; opacity: 0.3;">🎯</div>
-                                <div class="caption" style="text-align: center; opacity: 0.3;">Неделя осознанности</div>
+                                <div style="font-size: 24px; ${completedCount >= 5 ? '' : 'opacity: 0.3;'}">🎯</div>
+                                <div class="caption" style="text-align: center; ${completedCount >= 5 ? '' : 'opacity: 0.3;'}">Неделя осознанности</div>
                             </div>
                         </div>
                     </div>
@@ -397,13 +580,60 @@ class EmpathApp {
         `;
     }
 
+    calculateChallengeStreak(challenges) {
+        if (challenges.length === 0) return 0;
+        const completed = challenges.filter(c => c.completed)
+            .map(c => new Date(c.completedDate || c.startDate))
+            .sort((a, b) => b - a);
+        
+        if (completed.length === 0) return 0;
+        
+        let streak = 1;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i < completed.length - 1; i++) {
+            const diff = Math.floor((completed[i] - completed[i + 1]) / (1000 * 60 * 60 * 24));
+            if (diff === 1) streak++;
+            else break;
+        }
+        
+        return streak;
+    }
+
+    getThisWeekChallenges(challenges) {
+        const now = new Date();
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        return challenges.filter(c => {
+            if (!c.completedDate) return false;
+            const date = new Date(c.completedDate);
+            return date >= startOfWeek;
+        }).length;
+    }
+
     renderMeditationsView() {
-        const meditations = [
-            { id: 1, name: '💤 Перед сном', duration: '10 мин', type: 'sleep' },
-            { id: 2, name: '🌪️ Против тревоги', duration: '5 мин', type: 'anxiety' },
-            { id: 3, name: '🌊 Расслабляющая', duration: '7 мин', type: 'relax' },
-            { id: 4, name: '🎯 На концентрацию', duration: '8 мин', type: 'focus' }
+        const defaultMeditations = [
+            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep' },
+            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety' },
+            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax' },
+            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus' }
         ];
+
+        const savedMeditations = this.getLocalMeditations();
+        const totalSessions = savedMeditations.length;
+        const totalTime = savedMeditations.reduce((sum, m) => sum + (m.duration || 0), 0);
+        const totalMinutes = Math.floor(totalTime / 60);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const timeStr = totalHours > 0 
+            ? `${totalHours}ч ${totalMinutes % 60}м` 
+            : `${totalMinutes}м`;
+
+        const thisWeekMeditations = this.getThisWeekMeditations(savedMeditations);
+        const averageSessionTime = totalSessions > 0 
+            ? Math.floor(totalTime / totalSessions / 60) 
+            : 0;
 
         return `
             <div class="app-container">
@@ -420,35 +650,54 @@ class EmpathApp {
                     </div>
                 </div>
 
-                <!-- Список медитаций -->
-                <div class="panel secondary">
-                    <div class="cell-list island">
-                        ${meditations.map(meditation => `
-                            <div class="cell-simple" data-action="startMeditation" data-params="${meditation.id}">
-                                <div class="before">🎧</div>
-                                <div class="content">
-                                    <div class="title">${meditation.name}</div>
-                                    <div class="subtitle">${meditation.duration}</div>
-                                </div>
-                                <div class="chevron"></div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
                 <!-- Статистика медитаций -->
                 <div class="panel secondary">
                     <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">📊 Статистика</div>
                         <div class="grid cols-2 gap-16">
                             <div class="flex column center">
-                                <div class="title">12</div>
+                                <div class="title">${totalSessions}</div>
                                 <div class="caption">Всего сессий</div>
                             </div>
                             <div class="flex column center">
-                                <div class="title">1ч 24м</div>
+                                <div class="title">${timeStr}</div>
                                 <div class="caption">Общее время</div>
                             </div>
                         </div>
+                        <div class="grid cols-2 gap-16" style="margin-top: 16px;">
+                            <div class="flex column center">
+                                <div class="title">${thisWeekMeditations}</div>
+                                <div class="caption">На этой неделе</div>
+                            </div>
+                            <div class="flex column center">
+                                <div class="title">${averageSessionTime}м</div>
+                                <div class="caption">Средняя сессия</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Список медитаций -->
+                <div class="panel secondary">
+                    <div class="cell-list island">
+                        ${defaultMeditations.map(meditation => {
+                            const sessionCount = savedMeditations.filter(m => m.meditationId === meditation.id).length;
+                            return `
+                                <div class="cell-simple" data-action="startMeditation" data-params="${meditation.id}">
+                                    <div class="before">🎧</div>
+                                    <div class="content">
+                                        <div class="title">${meditation.name}</div>
+                                        <div class="subtitle">${meditation.duration} минут</div>
+                                        ${sessionCount > 0 ? `
+                                            <div class="caption" style="margin-top: 4px;">
+                                                Завершено сессий: ${sessionCount}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="chevron"></div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
 
@@ -466,6 +715,18 @@ class EmpathApp {
                 ${this.renderNavigation()}
             </div>
         `;
+    }
+
+    getThisWeekMeditations(meditations) {
+        const now = new Date();
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+        
+        return meditations.filter(m => {
+            if (!m.date) return false;
+            const date = new Date(m.date);
+            return date >= startOfWeek;
+        }).length;
     }
 
     renderKnowledgeBase() {
@@ -539,47 +800,316 @@ class EmpathApp {
     }
 
     // Методы взаимодействия
-    selectMood(emoji) {
+    async selectMood(emoji) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('medium');
         }
         
-        // Здесь будет логика сохранения настроения
-        console.log('Выбрано настроение:', emoji);
-        
-        // Временное уведомление
-        alert(`Настроение ${emoji} сохранено!`);
+        const moodValue = this.getMoodValue(emoji);
+        const moodEntry = {
+            emoji: emoji,
+            value: moodValue,
+            date: new Date().toISOString(),
+            timestamp: Date.now()
+        };
+
+        // Сохраняем локально
+        const moods = this.getLocalMoods();
+        moods.push(moodEntry);
+        this.saveLocalMoods(moods);
+
+        // Отправляем на сервер
+        await this.sendToBot('/mood', { mood: moodEntry });
+
+        // Показываем уведомление
+        if (window.WebApp) {
+            window.WebApp.showAlert('Настроение сохранено!');
+        } else {
+            alert(`Настроение ${emoji} сохранено!`);
+        }
+
+        // Обновляем отображение
+        this.renderApp();
     }
 
-    startChallenge(day) {
+    getMoodValue(emoji) {
+        const moodMap = {
+            '😢': 1,
+            '😔': 2,
+            '😐': 3,
+            '😊': 4,
+            '😄': 5
+        };
+        return moodMap[emoji] || 3;
+    }
+
+    renderMoodStats() {
+        const moods = this.getLocalMoods();
+        const weekData = this.getWeekMoodData(moods);
+        const averageMood = this.calculateAverageMood(weekData);
+
+        return `
+            <div class="app-container">
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">📈 Недельная статистика</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="mood">Назад</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="flex column center gap-16" style="padding: 24px 0;">
+                            <div class="headline">Среднее настроение</div>
+                            <div style="font-size: 48px;">${this.getMoodEmojiByValue(Math.round(averageMood))}</div>
+                            <div class="body medium">${averageMood.toFixed(1)} / 5.0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 16px;">График недели</div>
+                        <div class="mood-chart">
+                            ${weekData.map((day, index) => {
+                                const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                                const height = day.count > 0 ? (day.avg / 5 * 100) : 0;
+                                return `
+                                    <div class="chart-day">
+                                        <div class="chart-bar-container">
+                                            <div class="chart-bar" style="height: ${height}%"></div>
+                                        </div>
+                                        <div class="chart-label">${dayNames[index]}</div>
+                                        <div class="chart-emoji">${day.count > 0 ? this.getMoodEmojiByValue(Math.round(day.avg)) : '—'}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="grid cols-2 gap-16">
+                            <div class="flex column center">
+                                <div class="title">${moods.length}</div>
+                                <div class="caption">Всего записей</div>
+                            </div>
+                            <div class="flex column center">
+                                <div class="title">${weekData.filter(d => d.count > 0).length}</div>
+                                <div class="caption">Дней с записями</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                ${this.renderNavigation()}
+            </div>
+        `;
+    }
+
+    renderMoodHistory() {
+        const moods = this.getLocalMoods();
+        const sortedMoods = [...moods].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        return `
+            <div class="app-container">
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">📔 История записей</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="mood">Назад</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel secondary">
+                    <div class="cell-list island">
+                        ${sortedMoods.length === 0 ? `
+                            <div class="cell-simple">
+                                <div class="content">
+                                    <div class="title">Пока нет записей</div>
+                                    <div class="subtitle">Начни отслеживать своё настроение</div>
+                                </div>
+                            </div>
+                        ` : sortedMoods.map(mood => {
+                            const date = new Date(mood.date);
+                            const dateStr = date.toLocaleDateString('ru-RU', { 
+                                day: 'numeric', 
+                                month: 'long', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            return `
+                                <div class="cell-simple">
+                                    <div class="before" style="font-size: 32px;">${mood.emoji}</div>
+                                    <div class="content">
+                                        <div class="title">${dateStr}</div>
+                                        <div class="subtitle">Настроение: ${this.getMoodLabel(mood.value)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                ${this.renderNavigation()}
+            </div>
+        `;
+    }
+
+    getWeekMoodData(moods) {
+        const weekData = Array(7).fill(null).map(() => ({ count: 0, sum: 0, avg: 0 }));
+        const now = new Date();
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        moods.forEach(mood => {
+            const moodDate = new Date(mood.date);
+            if (moodDate >= startOfWeek) {
+                const dayIndex = (moodDate.getDay() + 6) % 7; // Понедельник = 0
+                if (dayIndex < 7) {
+                    weekData[dayIndex].count++;
+                    weekData[dayIndex].sum += mood.value;
+                    weekData[dayIndex].avg = weekData[dayIndex].sum / weekData[dayIndex].count;
+                }
+            }
+        });
+
+        return weekData;
+    }
+
+    calculateAverageMood(weekData) {
+        const daysWithData = weekData.filter(d => d.count > 0);
+        if (daysWithData.length === 0) return 0;
+        const total = daysWithData.reduce((sum, d) => sum + d.avg, 0);
+        return total / daysWithData.length;
+    }
+
+    getMoodEmojiByValue(value) {
+        const emojiMap = {
+            1: '😢',
+            2: '😔',
+            3: '😐',
+            4: '😊',
+            5: '😄'
+        };
+        return emojiMap[value] || '😐';
+    }
+
+    getMoodLabel(value) {
+        const labels = {
+            1: 'Очень плохо',
+            2: 'Плохо',
+            3: 'Нормально',
+            4: 'Хорошо',
+            5: 'Отлично'
+        };
+        return labels[value] || 'Неизвестно';
+    }
+
+    async startChallenge(day) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('light');
         }
-        console.log('Начало челленджа дня:', day);
+
+        const challenges = this.getLocalChallenges();
+        let challenge = challenges.find(c => c.day === day);
+        
+        if (!challenge) {
+            challenge = {
+                day: day,
+                startDate: new Date().toISOString(),
+                completed: false
+            };
+            challenges.push(challenge);
+        }
+
+        // Отмечаем как завершенный
+        if (!challenge.completed) {
+            challenge.completed = true;
+            challenge.completedDate = new Date().toISOString();
+        }
+
+        this.saveLocalChallenges(challenges);
+
+        // Отправляем на сервер
+        await this.sendToBot('/challenge', { challenge: challenge });
+
+        if (window.WebApp) {
+            window.WebApp.showAlert('Челлендж завершен!');
+        } else {
+            alert('Челлендж завершен!');
+        }
+
+        this.renderApp();
     }
 
-    startMeditation(id) {
+    async startMeditation(id) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('soft');
         }
-        console.log('Запуск медитации:', id);
-        
-        // Здесь будет запуск медитации с аудио
-        alert('Медитация запускается...');
+
+        const meditations = [
+            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep' },
+            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety' },
+            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax' },
+            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus' }
+        ];
+
+        const meditation = meditations.find(m => m.id === id);
+        if (!meditation) return;
+
+        // Запускаем медитацию (здесь можно добавить реальный плеер)
+        if (window.WebApp) {
+            window.WebApp.showAlert(`Медитация "${meditation.name}" запускается...`);
+        } else {
+            alert(`Медитация "${meditation.name}" запускается...`);
+        }
+
+        // Симулируем завершение медитации через заданное время
+        setTimeout(async () => {
+            const meditationEntry = {
+                meditationId: id,
+                name: meditation.name,
+                duration: meditation.duration * 60, // в секундах
+                type: meditation.type,
+                date: new Date().toISOString(),
+                timestamp: Date.now()
+            };
+
+            // Сохраняем локально
+            const savedMeditations = this.getLocalMeditations();
+            savedMeditations.push(meditationEntry);
+            this.saveLocalMeditations(savedMeditations);
+
+            // Отправляем на сервер
+            await this.sendToBot('/meditation', { meditation: meditationEntry });
+
+            if (window.WebApp) {
+                window.WebApp.showAlert('Медитация завершена!');
+            }
+
+            // Обновляем отображение
+            this.renderApp();
+        }, meditation.duration * 1000); // Для демо используем реальное время, в продакшене это будет управляться плеером
     }
 
     showMoodStats() {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.notificationOccurred('success');
         }
-        alert('Открывается статистика настроений');
+        this.navigateTo('moodStats');
     }
 
     showMoodHistory() {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.notificationOccurred('success');
         }
-        alert('Открывается история настроений');
+        this.navigateTo('moodHistory');
     }
 }
 
