@@ -78,6 +78,16 @@ class EmpathApp {
             const challenges = this.getLocalChallenges();
             const meditations = this.getLocalMeditations();
 
+            // Подготавливаем данные челленджей для отправки (только важные поля)
+            const challengesToSync = challenges.map(c => ({
+                day: c.day,
+                title: c.title,
+                description: c.description,
+                completed: c.completed || false,
+                completedDate: c.completedDate,
+                startDate: c.startDate
+            }));
+
             const response = await fetch(`${this.apiBaseUrl}/sync`, {
                 method: 'POST',
                 headers: {
@@ -86,22 +96,89 @@ class EmpathApp {
                 body: JSON.stringify({
                     userId: this.userData.userId,
                     moods: moods,
-                    challenges: challenges,
+                    challenges: challengesToSync,
                     meditations: meditations
                 })
             });
 
             if (response.ok) {
                 const data = await response.json();
+                
                 // Обновляем локальные данные данными с сервера
-                if (data.moods) this.saveLocalMoods(data.moods);
-                if (data.challenges) this.saveLocalChallenges(data.challenges);
-                if (data.meditations) this.saveLocalMeditations(data.meditations);
+                if (data.moods && Array.isArray(data.moods)) {
+                    this.saveLocalMoods(data.moods);
+                }
+                
+                if (data.challenges && Array.isArray(data.challenges)) {
+                    // Объединяем данные с сервера с локальными шаблонами
+                    const mergedChallenges = this.mergeChallengesWithTemplates(data.challenges);
+                    this.saveLocalChallenges(mergedChallenges);
+                }
+                
+                if (data.meditations && Array.isArray(data.meditations)) {
+                    this.saveLocalMeditations(data.meditations);
+                }
             }
         } catch (error) {
             console.error('Ошибка синхронизации с ботом:', error);
             // Продолжаем работу с локальными данными
         }
+    }
+
+    mergeChallengesWithTemplates(serverChallenges) {
+        // Шаблоны челленджей с полной информацией
+        const defaultChallenges = [
+            { 
+                day: 1, 
+                title: 'Детокс от шума', 
+                description: 'День без тревожных новостей',
+                details: 'Сегодня откажись от просмотра новостей и социальных сетей. Вместо этого проведи время на природе, почитай книгу или займись творчеством. Это поможет снизить уровень стресса и тревоги.',
+                tips: ['Отключи уведомления на телефоне', 'Проведи время на свежем воздухе', 'Займись медитацией или йогой', 'Почитай вдохновляющую книгу']
+            },
+            { 
+                day: 2, 
+                title: 'Меньше = легче', 
+                description: '3 простых эко-действия',
+                details: 'Сделай три простых шага для заботы о планете: используй многоразовую бутылку для воды, откажись от одноразовых пакетов и выключи свет, когда не используешь его. Маленькие действия имеют большое значение.',
+                tips: ['Используй многоразовую бутылку', 'Откажись от одноразовых пакетов', 'Выключай свет при выходе', 'Сортируй мусор']
+            },
+            { 
+                day: 3, 
+                title: 'Цифровой отдых', 
+                description: '2 часа без телефона',
+                details: 'Выдели 2 часа в день без телефона и других устройств. Проведи это время в общении с близкими, на природе или за любимым хобби. Это поможет восстановить ментальное равновесие.',
+                tips: ['Положи телефон в другую комнату', 'Проведи время с близкими', 'Займись физической активностью', 'Попробуй новое хобби']
+            },
+            { 
+                day: 4, 
+                title: 'Эко-день для души', 
+                description: 'Практики осознанности',
+                details: 'Практикуй осознанность через связь с природой. Посади растение, прогуляйся в парке или просто понаблюдай за природой. Это поможет почувствовать связь с окружающим миром.',
+                tips: ['Посади комнатное растение', 'Погуляй в парке или лесу', 'Понаблюдай за птицами или животными', 'Практикуй медитацию на природе']
+            },
+            { 
+                day: 5, 
+                title: 'Поделись добром', 
+                description: 'Поддержка других',
+                details: 'Сделай что-то доброе для других: помоги соседу, сделай комплимент незнакомцу, пожертвуй на благотворительность или просто выслушай друга. Забота о других наполняет нас энергией.',
+                tips: ['Помоги кому-то безвозмездно', 'Сделай комплимент незнакомцу', 'Пожертвуй на благотворительность', 'Выслушай друга или близкого']
+            }
+        ];
+
+        // Объединяем данные с сервера с шаблонами
+        return serverChallenges.map(serverChallenge => {
+            const template = defaultChallenges.find(t => t.day === serverChallenge.day);
+            if (template) {
+                return {
+                    ...template, // Полная информация из шаблона
+                    ...serverChallenge, // Данные с сервера (перезаписывают шаблон)
+                    completed: serverChallenge.completed || false,
+                    completedDate: serverChallenge.completedDate,
+                    startDate: serverChallenge.startDate || new Date().toISOString()
+                };
+            }
+            return serverChallenge;
+        });
     }
 
     async sendToBot(endpoint, data) {
@@ -1406,16 +1483,68 @@ class EmpathApp {
             window.WebApp.HapticFeedback.impactOccurred('light');
         }
 
+        // Получаем полную информацию о челлендже
+        const defaultChallenges = [
+            { 
+                day: 1, 
+                title: 'Детокс от шума', 
+                description: 'День без тревожных новостей',
+                details: 'Сегодня откажись от просмотра новостей и социальных сетей. Вместо этого проведи время на природе, почитай книгу или займись творчеством. Это поможет снизить уровень стресса и тревоги.',
+                tips: ['Отключи уведомления на телефоне', 'Проведи время на свежем воздухе', 'Займись медитацией или йогой', 'Почитай вдохновляющую книгу']
+            },
+            { 
+                day: 2, 
+                title: 'Меньше = легче', 
+                description: '3 простых эко-действия',
+                details: 'Сделай три простых шага для заботы о планете: используй многоразовую бутылку для воды, откажись от одноразовых пакетов и выключи свет, когда не используешь его. Маленькие действия имеют большое значение.',
+                tips: ['Используй многоразовую бутылку', 'Откажись от одноразовых пакетов', 'Выключай свет при выходе', 'Сортируй мусор']
+            },
+            { 
+                day: 3, 
+                title: 'Цифровой отдых', 
+                description: '2 часа без телефона',
+                details: 'Выдели 2 часа в день без телефона и других устройств. Проведи это время в общении с близкими, на природе или за любимым хобби. Это поможет восстановить ментальное равновесие.',
+                tips: ['Положи телефон в другую комнату', 'Проведи время с близкими', 'Займись физической активностью', 'Попробуй новое хобби']
+            },
+            { 
+                day: 4, 
+                title: 'Эко-день для души', 
+                description: 'Практики осознанности',
+                details: 'Практикуй осознанность через связь с природой. Посади растение, прогуляйся в парке или просто понаблюдай за природой. Это поможет почувствовать связь с окружающим миром.',
+                tips: ['Посади комнатное растение', 'Погуляй в парке или лесу', 'Понаблюдай за птицами или животными', 'Практикуй медитацию на природе']
+            },
+            { 
+                day: 5, 
+                title: 'Поделись добром', 
+                description: 'Поддержка других',
+                details: 'Сделай что-то доброе для других: помоги соседу, сделай комплимент незнакомцу, пожертвуй на благотворительность или просто выслушай друга. Забота о других наполняет нас энергией.',
+                tips: ['Помоги кому-то безвозмездно', 'Сделай комплимент незнакомцу', 'Пожертвуй на благотворительность', 'Выслушай друга или близкого']
+            }
+        ];
+
+        const challengeTemplate = defaultChallenges.find(c => c.day === day);
+        if (!challengeTemplate) return;
+
         const challenges = this.getLocalChallenges();
         let challenge = challenges.find(c => c.day === day);
         
         if (!challenge) {
             challenge = {
-                day: day,
+                ...challengeTemplate,
                 startDate: new Date().toISOString(),
                 completed: false
             };
             challenges.push(challenge);
+        } else {
+            // Обновляем информацию о челлендже, если она отсутствует
+            challenge = {
+                ...challengeTemplate,
+                ...challenge,
+                startDate: challenge.startDate || new Date().toISOString()
+            };
+            // Обновляем в массиве
+            const index = challenges.findIndex(c => c.day === day);
+            challenges[index] = challenge;
         }
 
         // Если уже завершен, просто показываем информацию
@@ -1435,8 +1564,31 @@ class EmpathApp {
 
         this.saveLocalChallenges(challenges);
 
-        // Отправляем на сервер
-        await this.sendToBot('/challenge', { challenge: challenge });
+        // Отправляем на сервер полную информацию о челлендже
+        try {
+            const response = await this.sendToBot('/challenge/complete', { 
+                challenge: {
+                    day: challenge.day,
+                    title: challenge.title,
+                    description: challenge.description,
+                    completed: challenge.completed,
+                    completedDate: challenge.completedDate,
+                    startDate: challenge.startDate
+                }
+            });
+
+            // Если сервер вернул обновленные данные, используем их
+            if (response && response.challenge) {
+                const index = challenges.findIndex(c => c.day === day);
+                if (index !== -1) {
+                    challenges[index] = { ...challenge, ...response.challenge };
+                    this.saveLocalChallenges(challenges);
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка синхронизации челленджа с ботом:', error);
+            // Продолжаем работу даже при ошибке синхронизации
+        }
 
         const successMessage = 'Челлендж завершен!';
         if (window.WebApp && window.WebApp.showPopup) {
