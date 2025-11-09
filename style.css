@@ -26,6 +26,10 @@ body {
     overflow-x: hidden;
 }
 
+.app-container {
+    padding-bottom: 80px; /* Отступ для фиксированной навигации */
+}
+
 .loading {
     display: flex;
     justify-content: center;

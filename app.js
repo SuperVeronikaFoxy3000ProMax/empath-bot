@@ -2,6 +2,7 @@ class EmpathApp {
     constructor() {
         this.currentView = 'dashboard';
         this.userData = null;
+        this.eventListenersAttached = false;
         this.init();
     }
 
@@ -102,6 +103,49 @@ class EmpathApp {
         // Добавляем анимацию
         appElement.classList.add('fade-in');
         setTimeout(() => appElement.classList.remove('fade-in'), 300);
+        
+        // Привязываем обработчики событий после рендера
+        this.attachEventListeners();
+    }
+    
+    attachEventListeners() {
+        // Привязываем обработчик только один раз
+        if (this.eventListenersAttached) return;
+        
+        const appElement = document.getElementById('app');
+        if (!appElement) return;
+        
+        // Используем делегирование событий для всех кликов
+        appElement.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const action = target.getAttribute('data-action');
+            const params = target.getAttribute('data-params');
+            
+            try {
+                if (action === 'navigate' && params) {
+                    this.navigateTo(params);
+                } else if (action === 'selectMood' && params) {
+                    this.selectMood(params);
+                } else if (action === 'startChallenge' && params) {
+                    this.startChallenge(parseInt(params));
+                } else if (action === 'startMeditation' && params) {
+                    this.startMeditation(parseInt(params));
+                } else if (action === 'showMoodStats') {
+                    this.showMoodStats();
+                } else if (action === 'showMoodHistory') {
+                    this.showMoodHistory();
+                }
+            } catch (error) {
+                console.error('Ошибка при обработке клика:', error);
+            }
+        });
+        
+        this.eventListenersAttached = true;
     }
 
     renderDashboard() {
@@ -129,21 +173,21 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="cell-list island">
                         <div class="cell-header">Быстрый старт</div>
-                        <div class="cell-simple" onclick="app.navigateTo('mood')">
+                        <div class="cell-simple" data-action="navigate" data-params="mood">
                             <div class="before">📝</div>
                             <div class="content">
                                 <div class="title">Отметить настроение</div>
                             </div>
                             <div class="chevron"></div>
                         </div>
-                        <div class="cell-simple" onclick="app.navigateTo('challenge')">
+                        <div class="cell-simple" data-action="navigate" data-params="challenge">
                             <div class="before">🌿</div>
                             <div class="content">
                                 <div class="title">Эко-челлендж</div>
                             </div>
                             <div class="chevron"></div>
                         </div>
-                        <div class="cell-simple" onclick="app.navigateTo('meditations')">
+                        <div class="cell-simple" data-action="navigate" data-params="meditations">
                             <div class="before">🧘</div>
                             <div class="content">
                                 <div class="title">Медитации</div>
@@ -211,7 +255,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between center">
                             <div class="title">📝 Дневник настроения</div>
-                            <button class="btn tertiary" onclick="app.navigateTo('dashboard')">Назад</button>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
                         <div class="body medium" style="margin-top: 8px;">
                             Как ты себя чувствуешь сегодня?
@@ -224,7 +268,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="mood-grid">
                             ${['😢', '😔', '😐', '😊', '😄'].map(emoji => `
-                                <div class="mood-item" onclick="app.selectMood('${emoji}')">
+                                <div class="mood-item" data-action="selectMood" data-params="${emoji}">
                                     ${emoji}
                                 </div>
                             `).join('')}
@@ -235,7 +279,7 @@ class EmpathApp {
                 <!-- Статистика настроений -->
                 <div class="panel secondary">
                     <div class="cell-list island">
-                        <div class="cell-simple" onclick="app.showMoodStats()">
+                        <div class="cell-simple" data-action="showMoodStats">
                             <div class="before">📈</div>
                             <div class="content">
                                 <div class="title">Недельная статистика</div>
@@ -243,7 +287,7 @@ class EmpathApp {
                             </div>
                             <div class="chevron"></div>
                         </div>
-                        <div class="cell-simple" onclick="app.showMoodHistory()">
+                        <div class="cell-simple" data-action="showMoodHistory">
                             <div class="before">📔</div>
                             <div class="content">
                                 <div class="title">История записей</div>
@@ -286,7 +330,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between center">
                             <div class="title">🌿 Эко-эмпатия челлендж</div>
-                            <button class="btn tertiary" onclick="app.navigateTo('dashboard')">Назад</button>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
                         <div class="body medium" style="margin-top: 8px;">
                             5 дней гармонии с собой и природой
@@ -311,7 +355,7 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="cell-list island">
                         ${challenges.map(challenge => `
-                            <div class="cell-simple" onclick="app.startChallenge(${challenge.day})">
+                            <div class="cell-simple" data-action="startChallenge" data-params="${challenge.day}">
                                 <div class="before">${challenge.completed ? '✅' : '📅'}</div>
                                 <div class="content">
                                     <div class="title">День ${challenge.day}: ${challenge.title}</div>
@@ -364,7 +408,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between center">
                             <div class="title">🧘 Медитации</div>
-                            <button class="btn tertiary" onclick="app.navigateTo('dashboard')">Назад</button>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
                         <div class="body medium" style="margin-top: 8px;">
                             Выбери практику для гармонии
@@ -376,7 +420,7 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="cell-list island">
                         ${meditations.map(meditation => `
-                            <div class="cell-simple" onclick="app.startMeditation(${meditation.id})">
+                            <div class="cell-simple" data-action="startMeditation" data-params="${meditation.id}">
                                 <div class="before">🎧</div>
                                 <div class="content">
                                     <div class="title">${meditation.name}</div>
@@ -427,7 +471,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between center">
                             <div class="title">📚 База знаний</div>
-                            <button class="btn tertiary" onclick="app.navigateTo('dashboard')">Назад</button>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
                     </div>
                 </div>
@@ -450,7 +494,7 @@ class EmpathApp {
                     <div class="container">
                         <div class="flex between center">
                             <div class="title">⚙️ Настройки</div>
-                            <button class="btn tertiary" onclick="app.navigateTo('dashboard')">Назад</button>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
                         </div>
                     </div>
                 </div>
@@ -480,7 +524,7 @@ class EmpathApp {
                 <div class="grid cols-5 gap-8">
                     ${views.map(view => `
                         <button class="tool-btn ${this.currentView === view.id ? 'active' : ''}" 
-                                onclick="app.navigateTo('${view.id}')">
+                                data-action="navigate" data-params="${view.id}">
                             <div class="icon">${view.icon}</div>
                             <div class="text">${view.label}</div>
                         </button>
