@@ -26,7 +26,7 @@ class EmpathApp {
         window.WebApp.ready();
 
         // Настраиваем кнопку назад
-        window.WebApp.BackButton.isVisible = false;
+        window.WebApp.BackButton.hide();
         window.WebApp.BackButton.onClick(() => {
             this.handleBackButton();
         });
@@ -66,7 +66,11 @@ class EmpathApp {
         
         // Управляем кнопкой назад
         if (window.WebApp) {
-            window.WebApp.BackButton.isVisible = view !== 'dashboard';
+            if (view !== 'dashboard') {
+                window.WebApp.BackButton.show();
+            } else {
+                window.WebApp.BackButton.hide();
+            }
         }
 
         this.renderApp();
