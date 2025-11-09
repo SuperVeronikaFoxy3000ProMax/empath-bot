@@ -445,6 +445,9 @@ class EmpathApp {
             } else if (action === 'showChallengeDetail' && params) {
                 console.log('Showing challenge detail:', params);
                 this.showChallengeDetail(parseInt(params));
+            } else if (action === 'cancelChallenge' && params) {
+                console.log('Canceling challenge:', params);
+                this.cancelChallenge(parseInt(params));
             } else if (action === 'startMeditation' && params) {
                 console.log('Starting meditation:', params);
                 this.startMeditation(parseInt(params));
@@ -528,6 +531,13 @@ class EmpathApp {
                             <div class="before">🧘</div>
                             <div class="content">
                                 <div class="title">Медитации</div>
+                            </div>
+                            <div class="chevron"></div>
+                        </div>
+                        <div class="cell-simple" data-action="navigate" data-params="knowledge">
+                            <div class="before">📚</div>
+                            <div class="content">
+                                <div class="title">База знаний</div>
                             </div>
                             <div class="chevron"></div>
                         </div>
@@ -1458,9 +1468,12 @@ class EmpathApp {
                 ${challenge.completed ? `
                     <div class="panel secondary">
                         <div class="container">
-                            <div class="body medium" style="text-align: center; padding: 16px;">
+                            <div class="body medium" style="text-align: center; padding: 16px; margin-bottom: 16px;">
                                 ✅ Челлендж завершен ${challenge.completedDate ? new Date(challenge.completedDate).toLocaleDateString('ru-RU') : ''}
                             </div>
+                            <button class="btn secondary" data-action="cancelChallenge" data-params="${challenge.day}" style="width: 100%;">
+                                ❌ Отменить выполнение
+                            </button>
                         </div>
                     </div>
                 ` : `
@@ -1601,6 +1614,72 @@ class EmpathApp {
         if (this.currentChallenge && this.currentChallenge.day === day) {
             this.currentChallenge.completed = true;
             this.currentChallenge.completedDate = challenge.completedDate;
+        }
+
+        this.renderApp();
+    }
+
+    async cancelChallenge(day) {
+        if (window.WebApp) {
+            window.WebApp.HapticFeedback.impactOccurred('light');
+        }
+
+        const challenges = this.getLocalChallenges();
+        const challenge = challenges.find(c => c.day === day);
+        
+        if (!challenge || !challenge.completed) {
+            const message = 'Челлендж не был завершен';
+            if (window.WebApp && window.WebApp.showPopup) {
+                window.WebApp.showPopup({ title: 'Информация', message: message, buttons: [{ type: 'ok' }] });
+            } else {
+                alert(message);
+            }
+            return;
+        }
+
+        // Отменяем выполнение
+        challenge.completed = false;
+        challenge.completedDate = null;
+
+        this.saveLocalChallenges(challenges);
+
+        // Отправляем на сервер информацию об отмене
+        try {
+            const response = await this.sendToBot('/challenge/cancel', { 
+                challenge: {
+                    day: challenge.day,
+                    title: challenge.title,
+                    description: challenge.description,
+                    completed: false,
+                    completedDate: null,
+                    startDate: challenge.startDate
+                }
+            });
+
+            // Если сервер вернул обновленные данные, используем их
+            if (response && response.challenge) {
+                const index = challenges.findIndex(c => c.day === day);
+                if (index !== -1) {
+                    challenges[index] = { ...challenge, ...response.challenge };
+                    this.saveLocalChallenges(challenges);
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка синхронизации отмены челленджа с ботом:', error);
+            // Продолжаем работу даже при ошибке синхронизации
+        }
+
+        const successMessage = 'Выполнение челленджа отменено';
+        if (window.WebApp && window.WebApp.showPopup) {
+            window.WebApp.showPopup({ title: 'Успех', message: successMessage, buttons: [{ type: 'ok' }] });
+        } else {
+            alert(successMessage);
+        }
+
+        // Обновляем текущий челлендж и перерисовываем
+        if (this.currentChallenge && this.currentChallenge.day === day) {
+            this.currentChallenge.completed = false;
+            this.currentChallenge.completedDate = null;
         }
 
         this.renderApp();
