@@ -79,14 +79,23 @@ class EmpathApp {
             const meditations = this.getLocalMeditations();
 
             // Подготавливаем данные челленджей для отправки (только важные поля)
-            const challengesToSync = challenges.map(c => ({
-                day: c.day,
-                title: c.title,
-                description: c.description,
-                completed: c.completed || false,
-                completedDate: c.completedDate,
-                startDate: c.startDate
-            }));
+            // Включаем все челленджи, включая отмененные (completed: false)
+            const challengesToSync = challenges.map(c => {
+                // Определяем, был ли челлендж отменен
+                // Отмененный = был начат (есть startDate), но не завершен (completed: false) 
+                // и нет даты завершения, но при этом он был в списке (значит мог быть завершен ранее)
+                const isCancelled = c.startDate && !c.completed && !c.completedDate;
+                
+                return {
+                    day: c.day,
+                    title: c.title,
+                    description: c.description,
+                    completed: c.completed || false,
+                    completedDate: c.completedDate || null, // Явно указываем null для отмененных
+                    startDate: c.startDate || null,
+                    cancelled: isCancelled || false // Флаг отмены
+                };
+            });
 
             const response = await fetch(`${this.apiBaseUrl}/sync`, {
                 method: 'POST',
@@ -173,8 +182,9 @@ class EmpathApp {
                     ...template, // Полная информация из шаблона
                     ...serverChallenge, // Данные с сервера (перезаписывают шаблон)
                     completed: serverChallenge.completed || false,
-                    completedDate: serverChallenge.completedDate,
-                    startDate: serverChallenge.startDate || new Date().toISOString()
+                    completedDate: serverChallenge.completedDate || null, // Явно указываем null для отмененных
+                    startDate: serverChallenge.startDate || new Date().toISOString(),
+                    cancelled: serverChallenge.cancelled || false // Сохраняем флаг отмены
                 };
             }
             return serverChallenge;
@@ -1603,6 +1613,13 @@ class EmpathApp {
             // Продолжаем работу даже при ошибке синхронизации
         }
 
+        // Дополнительно синхронизируем все данные с ботом
+        try {
+            await this.syncWithBot();
+        } catch (error) {
+            console.error('Ошибка дополнительной синхронизации:', error);
+        }
+
         const successMessage = 'Челлендж завершен!';
         if (window.WebApp && window.WebApp.showPopup) {
             window.WebApp.showPopup({ title: 'Успех', message: successMessage, buttons: [{ type: 'ok' }] });
@@ -1652,7 +1669,8 @@ class EmpathApp {
                     description: challenge.description,
                     completed: false,
                     completedDate: null,
-                    startDate: challenge.startDate
+                    startDate: challenge.startDate,
+                    cancelled: true // Явно указываем, что челлендж отменен
                 }
             });
 
@@ -1667,6 +1685,13 @@ class EmpathApp {
         } catch (error) {
             console.error('Ошибка синхронизации отмены челленджа с ботом:', error);
             // Продолжаем работу даже при ошибке синхронизации
+        }
+
+        // Дополнительно синхронизируем все данные с ботом
+        try {
+            await this.syncWithBot();
+        } catch (error) {
+            console.error('Ошибка дополнительной синхронизации:', error);
         }
 
         const successMessage = 'Выполнение челленджа отменено';
