@@ -81,10 +81,9 @@ class EmpathApp {
             // Подготавливаем данные челленджей для отправки (только важные поля)
             // Включаем все челленджи, включая отмененные (completed: false)
             const challengesToSync = challenges.map(c => {
-                // Определяем, был ли челлендж отменен
-                // Отмененный = был начат (есть startDate), но не завершен (completed: false) 
-                // и нет даты завершения, но при этом он был в списке (значит мог быть завершен ранее)
-                const isCancelled = c.startDate && !c.completed && !c.completedDate;
+                // Отмененный челлендж - это тот, у которого явно установлен флаг cancelled
+                // или который был завершен (wasCompleted), но теперь не завершен
+                const isCancelled = c.cancelled === true || (c.wasCompleted === true && !c.completed);
                 
                 return {
                     day: c.day,
@@ -93,7 +92,8 @@ class EmpathApp {
                     completed: c.completed || false,
                     completedDate: c.completedDate || null, // Явно указываем null для отмененных
                     startDate: c.startDate || null,
-                    cancelled: isCancelled || false // Флаг отмены
+                    cancelled: isCancelled, // Флаг отмены
+                    wasCompleted: c.wasCompleted || false // Флаг того, что был завершен ранее
                 };
             });
 
@@ -184,7 +184,8 @@ class EmpathApp {
                     completed: serverChallenge.completed || false,
                     completedDate: serverChallenge.completedDate || null, // Явно указываем null для отмененных
                     startDate: serverChallenge.startDate || new Date().toISOString(),
-                    cancelled: serverChallenge.cancelled || false // Сохраняем флаг отмены
+                    cancelled: serverChallenge.cancelled || false, // Сохраняем флаг отмены
+                    wasCompleted: serverChallenge.wasCompleted || false // Сохраняем флаг того, что был завершен
                 };
             }
             return serverChallenge;
@@ -1584,6 +1585,8 @@ class EmpathApp {
         // Отмечаем как завершенный
         challenge.completed = true;
         challenge.completedDate = new Date().toISOString();
+        challenge.cancelled = false; // Сбрасываем флаг отмены, если был
+        challenge.wasCompleted = true; // Помечаем, что был завершен
 
         this.saveLocalChallenges(challenges);
 
@@ -1596,7 +1599,9 @@ class EmpathApp {
                     description: challenge.description,
                     completed: challenge.completed,
                     completedDate: challenge.completedDate,
-                    startDate: challenge.startDate
+                    startDate: challenge.startDate,
+                    cancelled: false, // Явно указываем, что не отменен
+                    wasCompleted: true // Указываем, что завершен
                 }
             });
 
@@ -1657,6 +1662,8 @@ class EmpathApp {
         // Отменяем выполнение
         challenge.completed = false;
         challenge.completedDate = null;
+        challenge.cancelled = true; // Явно помечаем как отмененный
+        challenge.wasCompleted = true; // Помечаем, что ранее был завершен
 
         this.saveLocalChallenges(challenges);
 
@@ -1670,7 +1677,8 @@ class EmpathApp {
                     completed: false,
                     completedDate: null,
                     startDate: challenge.startDate,
-                    cancelled: true // Явно указываем, что челлендж отменен
+                    cancelled: true, // Явно указываем, что челлендж отменен
+                    wasCompleted: true // Указываем, что ранее был завершен
                 }
             });
 
@@ -1705,6 +1713,8 @@ class EmpathApp {
         if (this.currentChallenge && this.currentChallenge.day === day) {
             this.currentChallenge.completed = false;
             this.currentChallenge.completedDate = null;
+            this.currentChallenge.cancelled = true;
+            this.currentChallenge.wasCompleted = true;
         }
 
         this.renderApp();
