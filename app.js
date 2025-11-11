@@ -10,6 +10,9 @@ class EmpathApp {
         this.currentMeditation = null;
         this.currentKnowledgeItem = null;
         this.currentChallenge = null;
+        this.vkDonationProjectId = 'VK_DOBRO_PROJECT_ID'; // Замените на реальный ID проекта VK Добро
+        this.vkDonationCampaignUrl = 'https://vk.com/dobro';
+        this.vkScriptLoadingPromise = null;
         this.init();
     }
 
@@ -329,6 +332,9 @@ class EmpathApp {
             case 'meditationPlayer':
                 appElement.innerHTML = this.renderMeditationPlayer();
                 break;
+            case 'donation':
+                appElement.innerHTML = this.renderDonationView();
+                break;
             case 'knowledge':
                 appElement.innerHTML = this.renderKnowledgeBase();
                 break;
@@ -355,6 +361,10 @@ class EmpathApp {
         // Инициализируем аудио плеер для медитации, если нужно
         if (this.currentView === 'meditationPlayer') {
             setTimeout(() => this.initMeditationPlayer(), 100);
+        }
+        
+        if (this.currentView === 'donation') {
+            setTimeout(() => this.initVKDonationWidget(), 100);
         }
     }
     
@@ -477,6 +487,9 @@ class EmpathApp {
             } else if (action === 'showKnowledge' && params) {
                 console.log('Showing knowledge:', params);
                 this.showKnowledge(parseInt(params));
+            } else if (action === 'openVkDobro') {
+                console.log('Opening VK Добро');
+                this.openVkDobro(params);
             } else {
                 console.warn('Unknown action:', action, 'params:', params);
             }
@@ -493,12 +506,7 @@ class EmpathApp {
         const meditations = this.getLocalMeditations();
         
         const completedChallenges = challenges.filter(c => c.completed).length;
-        const totalMeditationTime = meditations.reduce((sum, m) => sum + (m.duration || 0), 0);
-        const meditationMinutes = Math.floor(totalMeditationTime / 60);
-        const meditationHours = Math.floor(meditationMinutes / 60);
-        const meditationTimeStr = meditationHours > 0 
-            ? `${meditationHours}ч ${meditationMinutes % 60}м` 
-            : `${meditationMinutes}м`;
+        const meditationSessions = meditations.length;
 
         return `
             <div class="app-container">
@@ -552,6 +560,13 @@ class EmpathApp {
                             </div>
                             <div class="chevron"></div>
                         </div>
+                        <div class="cell-simple" data-action="navigate" data-params="donation">
+                            <div class="before">💚</div>
+                            <div class="content">
+                                <div class="title">Помощь другим</div>
+                            </div>
+                            <div class="chevron"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -580,10 +595,10 @@ class EmpathApp {
                         <div class="cell-simple">
                             <div class="before">🧘</div>
                             <div class="content">
-                                <div class="title">Время медитаций</div>
+                                <div class="title">Сессий медитации</div>
                             </div>
                             <div class="after">
-                                <div class="counter">${meditationTimeStr}</div>
+                                <div class="counter">${meditationSessions}</div>
                             </div>
                         </div>
                     </div>
@@ -839,17 +854,7 @@ class EmpathApp {
 
         const savedMeditations = this.getLocalMeditations();
         const totalSessions = savedMeditations.length;
-        const totalTime = savedMeditations.reduce((sum, m) => sum + (m.duration || 0), 0);
-        const totalMinutes = Math.floor(totalTime / 60);
-        const totalHours = Math.floor(totalMinutes / 60);
-        const timeStr = totalHours > 0 
-            ? `${totalHours}ч ${totalMinutes % 60}м` 
-            : `${totalMinutes}м`;
-
         const thisWeekMeditations = this.getThisWeekMeditations(savedMeditations);
-        const averageSessionTime = totalSessions > 0 
-            ? Math.floor(totalTime / totalSessions / 60) 
-            : 0;
 
         return `
             <div class="app-container">
@@ -876,18 +881,8 @@ class EmpathApp {
                                 <div class="caption">Всего сессий</div>
                             </div>
                             <div class="flex column center">
-                                <div class="title">${timeStr}</div>
-                                <div class="caption">Общее время</div>
-                            </div>
-                        </div>
-                        <div class="grid cols-2 gap-16" style="margin-top: 16px;">
-                            <div class="flex column center">
                                 <div class="title">${thisWeekMeditations}</div>
                                 <div class="caption">На этой неделе</div>
-                            </div>
-                            <div class="flex column center">
-                                <div class="title">${averageSessionTime}м</div>
-                                <div class="caption">Средняя сессия</div>
                             </div>
                         </div>
                     </div>
@@ -924,6 +919,67 @@ class EmpathApp {
                         <div class="body medium">
                             Регулярная практика медитации помогает снизить стресс, 
                             улучшить сон и повысить осознанность.
+                        </div>
+                    </div>
+                </div>
+
+                ${this.renderNavigation()}
+            </div>
+        `;
+    }
+
+    renderDonationView() {
+        return `
+            <div class="app-container">
+                <!-- Заголовок -->
+                <div class="panel primary">
+                    <div class="container">
+                        <div class="flex between center">
+                            <div class="title">💚 Помощь другим</div>
+                            <button class="btn tertiary" data-action="navigate" data-params="dashboard">Назад</button>
+                        </div>
+                        <div class="body medium" style="margin-top: 8px;">
+                            Поддержи добрые инициативы через VK Добро
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Описание -->
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">Зачем помогать?</div>
+                        <div class="body medium">
+                            Каждое пожертвование — это реальная помощь людям и проектам, которым нужна поддержка.
+                            Выбери комфортную сумму и сделай вклад в общее доброе дело.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Виджет VK Добро -->
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">Пожертвование через VK Добро</div>
+                        <div id="vk_donation_widget" class="vk-donation-widget" style="min-height: 380px;">
+                            <div class="body medium" style="text-align: center; padding: 24px;">
+                                Загружаем виджет VK Добро...
+                            </div>
+                        </div>
+                        <button class="btn primary" style="margin-top: 16px;" data-action="openVkDobro">
+                            Открыть VK Добро
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Дополнительная поддержка -->
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">Другие способы помочь</div>
+                        <div class="body medium">
+                            <ul style="padding-left: 16px; margin: 0;">
+                                <li>Поделись ссылкой на кампанию VK Добро с друзьями.</li>
+                                <li>Расскажи о проектах, которым хочешь помочь.</li>
+                                <li>Участвуй в волонтерских инициативах и событиях.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -1130,12 +1186,13 @@ class EmpathApp {
             { id: 'mood', icon: '📝', label: 'Настроение' },
             { id: 'challenge', icon: '🌿', label: 'Челлендж' },
             { id: 'meditations', icon: '🧘', label: 'Медитации' },
+            { id: 'donation', icon: '💚', label: 'Помощь' },
             { id: 'knowledge', icon: '📚', label: 'Знания' }
         ];
 
         return `
             <div class="navigation">
-                <div class="grid cols-5 gap-8">
+                <div class="grid gap-8" style="grid-template-columns: repeat(${views.length}, minmax(0, 1fr));">
                     ${views.map(view => `
                         <button class="tool-btn ${this.currentView === view.id ? 'active' : ''}" 
                                 data-action="navigate" data-params="${view.id}">
@@ -1146,6 +1203,118 @@ class EmpathApp {
                 </div>
             </div>
         `;
+    }
+
+    async loadVKScript() {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        if (window.VK && window.VK.Widgets && window.VK.Widgets.Donation) {
+            return true;
+        }
+
+        if (this.vkScriptLoadingPromise) {
+            return this.vkScriptLoadingPromise;
+        }
+
+        this.vkScriptLoadingPromise = new Promise((resolve) => {
+            const existingScript = document.querySelector('script[src*="vk.com/js/api/openapi.js"]');
+            if (existingScript) {
+                if (existingScript.dataset.loaded === 'true' || (window.VK && window.VK.Widgets)) {
+                    resolve(true);
+                    return;
+                }
+                existingScript.addEventListener('load', () => resolve(true), { once: true });
+                existingScript.addEventListener('error', () => resolve(false), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://vk.com/js/api/openapi.js?169';
+            script.async = true;
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve(true);
+            };
+            script.onerror = () => resolve(false);
+            document.head.appendChild(script);
+        }).finally(() => {
+            this.vkScriptLoadingPromise = null;
+        });
+
+        return this.vkScriptLoadingPromise;
+    }
+
+    async initVKDonationWidget() {
+        const container = document.getElementById('vk_donation_widget');
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = `<div class="body medium" style="text-align: center; padding: 24px;">Загружаем виджет VK Добро...</div>`;
+
+        const widgetLoaded = await this.loadVKScript();
+
+        if (!widgetLoaded || !window.VK || !window.VK.Widgets) {
+            container.innerHTML = `
+                <div class="body medium" style="text-align: center; padding: 24px;">
+                    Не удалось загрузить виджет VK Добро. Попробуй открыть пожертвование по ссылке ниже.
+                </div>
+            `;
+            return;
+        }
+
+        try {
+            const projectId = this.vkDonationProjectId;
+            if (!projectId || projectId === 'VK_DOBRO_PROJECT_ID') {
+                container.innerHTML = `
+                    <div class="body medium" style="text-align: center; padding: 24px;">
+                        Укажи корректный ID проекта VK Добро в настройках приложения.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+
+            if (window.VK.Widgets.Donation) {
+                window.VK.Widgets.Donation('vk_donation_widget', {
+                    button_text: 'Помочь',
+                    wide: 1
+                }, projectId);
+            } else {
+                container.innerHTML = `
+                    <div class="body medium" style="text-align: center; padding: 24px;">
+                        Виджет VK Добро временно недоступен. Используй кнопку ниже, чтобы перейти на страницу пожертвования.
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Ошибка инициализации виджета VK Добро:', error);
+            container.innerHTML = `
+                <div class="body medium" style="text-align: center; padding: 24px;">
+                    Не удалось отобразить виджет. Попробуй открыть пожертвование по ссылке ниже.
+                </div>
+            `;
+        }
+    }
+
+    openVkDobro(url) {
+        const targetUrl = typeof url === 'string' && url.startsWith('http')
+            ? url
+            : this.vkDonationCampaignUrl;
+
+        if (!targetUrl) {
+            console.warn('VK Добро: ссылка для пожертвования не задана');
+            return;
+        }
+
+        if (window.WebApp && window.WebApp.openLink) {
+            window.WebApp.openLink(targetUrl);
+        } else {
+            window.open(targetUrl, '_blank', 'noopener');
+        }
     }
 
     // Методы взаимодействия
