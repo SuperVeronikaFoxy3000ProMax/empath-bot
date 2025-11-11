@@ -624,8 +624,18 @@ class EmpathApp {
                             Сделай паузу на 2 минуты. Закрой глаза и сосредоточься на дыхании. 
                             Это поможет снизить стресс и вернуть фокус.
                         </div>
+                    </div>
+                </div>
+
+                <!-- Телефон доверия -->
+                <div class="panel secondary">
+                    <div class="container">
+                        <div class="headline" style="margin-bottom: 12px;">📞 Телефон доверия</div>
+                        <div class="body medium">
+                            Если тебе нужна поддержка, ты всегда можешь позвонить:
+                        </div>
                         <div class="body medium" style="margin-top: 12px;">
-                            Телефон доверия: <a href="tel:88002000122" style="color: inherit; text-decoration: underline;">8&nbsp;800&nbsp;2000&nbsp;122</a>
+                            <a href="tel:88002000122" style="color: inherit; text-decoration: underline; font-size: 18px; font-weight: 500;">8 800 2000 122</a>
                         </div>
                     </div>
                 </div>
