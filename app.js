@@ -10,6 +10,8 @@ class EmpathApp {
         this.currentMeditation = null;
         this.currentKnowledgeItem = null;
         this.currentChallenge = null;
+        this.pendingMood = null;
+        this.pendingMoodReason = '';
         this.vkDonationProjectId = 'VK_DOBRO_PROJECT_ID'; // Замените на реальный ID проекта VK Добро
         this.vkDonationCampaignUrl = 'https://vk.com/dobro';
         this.vkScriptLoadingPromise = null;
@@ -288,9 +290,14 @@ class EmpathApp {
         const previousView = this.currentView;
         this.currentView = view;
         
+        if (view !== 'mood') {
+            this.pendingMood = null;
+            this.pendingMoodReason = '';
+        }
+        
         // Управляем кнопкой назад
         if (window.WebApp && window.WebApp.BackButton) {
-            const mainViews = ['dashboard', 'mood', 'challenge', 'meditations', 'knowledge', 'settings'];
+            const mainViews = ['dashboard', 'mood', 'challenge', 'meditations', 'knowledge', 'settings', 'donation'];
             if (mainViews.includes(view)) {
                 window.WebApp.BackButton.hide();
             } else {
@@ -490,6 +497,9 @@ class EmpathApp {
             } else if (action === 'openVkDobro') {
                 console.log('Opening VK Добро');
                 this.openVkDobro(params);
+            } else if (action === 'submitMoodEntry') {
+                console.log('Submitting mood entry');
+                this.submitMoodEntry();
             } else {
                 console.warn('Unknown action:', action, 'params:', params);
             }
@@ -640,14 +650,37 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="container">
                         <div class="mood-grid">
-                            ${['😢', '😔', '😐', '😊', '😄'].map(emoji => `
-                                <div class="mood-item" data-action="selectMood" data-params="${emoji}">
-                                    ${emoji}
-                                </div>
-                            `).join('')}
+                            ${['😢', '😔', '😐', '😊', '😄'].map(emoji => {
+                                const isSelected = this.pendingMood === emoji;
+                                const selectedStyle = isSelected 
+                                    ? 'transform: scale(1.05); box-shadow: 0 0 0 3px rgba(75, 179, 75, 0.4);'
+                                    : '';
+                                return `
+                                    <div class="mood-item" data-action="selectMood" data-params="${emoji}" style="${selectedStyle}">
+                                        ${emoji}
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
+                        ${this.pendingMood ? `
+                            <div class="body medium" style="margin-top: 16px; text-align: center;">
+                                Ты выбрал настроение ${this.pendingMood}. Расскажи, почему ты так себя чувствуешь?
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
+
+                ${this.pendingMood ? `
+                    <div class="panel secondary">
+                        <div class="container">
+                            <div class="headline" style="margin-bottom: 12px;">Причина настроения</div>
+                            <textarea id="mood-reason-input" placeholder="Например: встретился с друзьями, тяжёлый день на работе, получил хорошие новости..." rows="3" style="width: 100%; border-radius: 12px; border: none; background: rgba(255, 255, 255, 0.08); color: inherit; padding: 12px; font-size: 14px; resize: vertical;">${this.pendingMoodReason || ''}</textarea>
+                            <button class="btn primary" style="margin-top: 16px;" data-action="submitMoodEntry">
+                                Сохранить запись
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
 
                 <!-- Статистика настроений -->
                 <div class="panel secondary">
@@ -1197,7 +1230,7 @@ class EmpathApp {
                         <button class="tool-btn ${this.currentView === view.id ? 'active' : ''}" 
                                 data-action="navigate" data-params="${view.id}">
                             <div class="icon">${view.icon}</div>
-                            <div class="text">${view.label}</div>
+                            <div class="text" style="font-size: 12px;">${view.label}</div>
                         </button>
                     `).join('')}
                 </div>
@@ -1270,7 +1303,7 @@ class EmpathApp {
             if (!projectId || projectId === 'VK_DOBRO_PROJECT_ID') {
                 container.innerHTML = `
                     <div class="body medium" style="text-align: center; padding: 24px;">
-                        Укажи корректный ID проекта VK Добро в настройках приложения.
+                        Здесь появится виджет VK Добро, как только он будет подключён. Пока что можно перейти по кнопке ниже и сделать пожертвование напрямую.
                     </div>
                 `;
                 return;
@@ -1318,28 +1351,38 @@ class EmpathApp {
     }
 
     // Методы взаимодействия
-    async selectMood(emoji) {
+    selectMood(emoji) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('medium');
         }
         
-        const moodValue = this.getMoodValue(emoji);
+        this.pendingMood = emoji;
+        this.pendingMoodReason = '';
+        this.renderApp();
+    }
+
+    async submitMoodEntry() {
+        if (!this.pendingMood) {
+            return;
+        }
+
+        const reasonInput = document.getElementById('mood-reason-input');
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        const moodValue = this.getMoodValue(this.pendingMood);
         const moodEntry = {
-            emoji: emoji,
+            emoji: this.pendingMood,
             value: moodValue,
+            reason: reason,
             date: new Date().toISOString(),
             timestamp: Date.now()
         };
 
-        // Сохраняем локально
         const moods = this.getLocalMoods();
         moods.push(moodEntry);
         this.saveLocalMoods(moods);
 
-        // Отправляем на сервер
         await this.sendToBot('/mood', { mood: moodEntry });
 
-        // Показываем уведомление
         const message = 'Настроение сохранено!';
         if (window.WebApp && window.WebApp.showPopup) {
             window.WebApp.showPopup({ title: 'Успех', message: message, buttons: [{ type: 'ok' }] });
@@ -1349,7 +1392,8 @@ class EmpathApp {
             alert(message);
         }
 
-        // Обновляем отображение
+        this.pendingMood = null;
+        this.pendingMoodReason = '';
         this.renderApp();
     }
 
@@ -1470,6 +1514,11 @@ class EmpathApp {
                                     <div class="content">
                                         <div class="title">${dateStr}</div>
                                         <div class="subtitle">Настроение: ${this.getMoodLabel(mood.value)}</div>
+                                        ${mood.reason ? `
+                                            <div class="body small" style="margin-top: 6px; opacity: 0.8;">
+                                                Причина: ${mood.reason}
+                                            </div>
+                                        ` : ''}
                                     </div>
                                 </div>
                             `;
