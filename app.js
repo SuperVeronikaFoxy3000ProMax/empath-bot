@@ -15,6 +15,8 @@ class EmpathApp {
         this.vkDonationProjectId = 'VK_DOBRO_PROJECT_ID'; // Замените на реальный ID проекта VK Добро
         this.vkDonationCampaignUrl = 'https://vk.com/dobro';
         this.vkScriptLoadingPromise = null;
+        this.meditationTimeUpdateHandler = () => this.updateMeditationProgress();
+        this.meditationEndedHandler = () => this.onMeditationEnded();
         this.init();
     }
 
@@ -886,8 +888,6 @@ class EmpathApp {
         ];
 
         const savedMeditations = this.getLocalMeditations();
-        const totalSessions = savedMeditations.length;
-        const thisWeekMeditations = this.getThisWeekMeditations(savedMeditations);
 
         return `
             <div class="app-container">
@@ -900,23 +900,6 @@ class EmpathApp {
                         </div>
                         <div class="body medium" style="margin-top: 8px;">
                             Выбери практику для гармонии
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Статистика медитаций -->
-                <div class="panel secondary">
-                    <div class="container">
-                        <div class="headline" style="margin-bottom: 12px;">📊 Статистика</div>
-                        <div class="grid cols-2 gap-16">
-                            <div class="flex column center">
-                                <div class="title">${totalSessions}</div>
-                                <div class="caption">Всего сессий</div>
-                            </div>
-                            <div class="flex column center">
-                                <div class="title">${thisWeekMeditations}</div>
-                                <div class="caption">На этой неделе</div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -2029,15 +2012,21 @@ class EmpathApp {
 
     initMeditationPlayer() {
         const audioElement = document.getElementById('meditationAudio');
-        if (audioElement && !this.audioPlayer) {
-            this.audioPlayer = audioElement;
-            this.audioPlayer.addEventListener('timeupdate', () => {
-                this.updateMeditationProgress();
-            });
-            this.audioPlayer.addEventListener('ended', () => {
-                this.onMeditationEnded();
-            });
+        if (!audioElement) {
+            return;
         }
+
+        if (this.audioPlayer && this.audioPlayer !== audioElement) {
+            this.audioPlayer.removeEventListener('timeupdate', this.meditationTimeUpdateHandler);
+            this.audioPlayer.removeEventListener('ended', this.meditationEndedHandler);
+        }
+
+        this.audioPlayer = audioElement;
+        this.audioPlayer.removeEventListener('timeupdate', this.meditationTimeUpdateHandler);
+        this.audioPlayer.removeEventListener('ended', this.meditationEndedHandler);
+        this.audioPlayer.addEventListener('timeupdate', this.meditationTimeUpdateHandler);
+        this.audioPlayer.addEventListener('ended', this.meditationEndedHandler);
+        this.updateMeditationControls();
     }
 
     playMeditation() {
@@ -2047,14 +2036,17 @@ class EmpathApp {
         
         if (this.audioPlayer) {
             if (this.audioPlayer.paused) {
-                this.audioPlayer.play().catch(err => {
+                this.audioPlayer.play().then(() => {
+                    this.updateMeditationControls();
+                }).catch(err => {
                     console.error('Ошибка воспроизведения:', err);
                     alert('Не удалось воспроизвести медитацию. Проверьте файл.');
+                    this.updateMeditationControls();
                 });
             } else {
                 this.audioPlayer.pause();
+                this.updateMeditationControls();
             }
-            this.renderApp();
         }
     }
 
@@ -2062,7 +2054,11 @@ class EmpathApp {
         if (this.audioPlayer) {
             this.audioPlayer.pause();
             this.audioPlayer.currentTime = 0;
-            this.renderApp();
+            const progressElement = document.getElementById('meditationProgress');
+            if (progressElement) {
+                progressElement.textContent = 'Готово к воспроизведению';
+            }
+            this.updateMeditationControls();
         }
     }
 
@@ -2080,8 +2076,11 @@ class EmpathApp {
             
             if (duration > 0) {
                 progressElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+            } else if (this.audioPlayer.paused) {
+                progressElement.textContent = 'На паузе';
             }
         }
+        this.updateMeditationControls();
     }
 
     async onMeditationEnded() {
@@ -2117,6 +2116,14 @@ class EmpathApp {
         this.currentMeditation = null;
         this.audioPlayer = null;
         this.navigateTo('meditations');
+    }
+
+    updateMeditationControls() {
+        const playButton = document.querySelector('[data-action="playMeditation"]');
+        if (playButton) {
+            const isPlaying = this.audioPlayer && !this.audioPlayer.paused;
+            playButton.textContent = isPlaying ? '⏸️ Пауза' : '▶️ Играть';
+        }
     }
 }
 
