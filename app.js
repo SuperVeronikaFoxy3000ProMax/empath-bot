@@ -778,7 +778,7 @@ class EmpathApp {
                             <div class="cell-simple" data-action="showChallengeDetail" data-params="${challenge.day}">
                                 <div class="before">${challenge.completed ? '✅' : '📅'}</div>
                                 <div class="content">
-                                    <div class="title">День ${challenge.day}: ${challenge.title}</div>
+                                    <div class="title">Задание ${challenge.day}: ${challenge.title}</div>
                                     <div class="subtitle">${challenge.description}</div>
                                     ${challenge.completedDate ? `
                                         <div class="caption" style="margin-top: 4px;">
@@ -853,10 +853,10 @@ class EmpathApp {
 
     renderMeditationsView() {
         const defaultMeditations = [
-            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep' },
-            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety' },
-            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax' },
-            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus' }
+            { id: 1, name: '💤 Перед сном', duration: 3, type: 'sleep' },
+            { id: 2, name: '🌪️ Против тревоги', duration: 3, type: 'anxiety' },
+            { id: 3, name: '🌊 Расслабляющая', duration: 4, type: 'relax' },
+            { id: 4, name: '🎯 На концентрацию', duration: 4, type: 'focus' }
         ];
 
         const savedMeditations = this.getLocalMeditations();
@@ -1552,7 +1552,7 @@ class EmpathApp {
                 <div class="panel primary">
                     <div class="container">
                         <div class="flex between center">
-                            <div class="title">День ${challenge.day}: ${challenge.title}</div>
+                            <div class="title">Задание ${challenge.day}: ${challenge.title}</div>
                             <button class="btn tertiary" data-action="navigate" data-params="challenge">Назад</button>
                         </div>
                         <div class="body medium" style="margin-top: 8px;">
@@ -1820,10 +1820,10 @@ class EmpathApp {
         }
 
         const meditations = [
-            { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep', file: 'meditations/sleep.mp3' },
-            { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety', file: 'meditations/anxiety.mp3' },
-            { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax', file: 'meditations/relax.mp3' },
-            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus', file: 'meditations/relax.mp3' }  
+            { id: 1, name: '💤 Перед сном', duration: 3, type: 'sleep', file: 'meditations/sleep.mp3' },
+            { id: 2, name: '🌪️ Против тревоги', duration: 3, type: 'anxiety', file: 'meditations/anxiety.mp3' },
+            { id: 3, name: '🌊 Расслабляющая', duration: 4, type: 'relax', file: 'meditations/relax.mp3' },
+            { id: 4, name: '🎯 На концентрацию', duration: 4, type: 'focus', file: 'meditations/focus.mp3' }  
         ];
 
         const meditation = meditations.find(m => m.id === id);
