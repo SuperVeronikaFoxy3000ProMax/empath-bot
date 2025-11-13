@@ -3,8 +3,6 @@ class EmpathApp {
         this.currentView = 'dashboard';
         this.userData = null;
         this.eventListenersAttached = false;
-        // ВАЖНО: Замените на реальный URL вашего бота API
-        // Например: 'https://your-bot-api.com' или используйте переменную окружения
         this.apiBaseUrl = 'https://api.example.com';
         this.audioPlayer = null;
         this.currentMeditation = null;
@@ -12,7 +10,6 @@ class EmpathApp {
         this.currentChallenge = null;
         this.pendingMood = null;
         this.pendingMoodReason = '';
-        this.vkDonationProjectId = 'VK_DOBRO_PROJECT_ID'; // Замените на реальный ID проекта VK Добро
         this.vkDonationCampaignUrl = 'https://vk.com/dobro';
         this.vkScriptLoadingPromise = null;
         this.meditationTimeUpdateHandler = () => this.updateMeditationProgress();
@@ -20,15 +17,12 @@ class EmpathApp {
         this.init();
     }
 
-    // Методы работы с данными
     async loadData() {
         try {
-            // Загружаем из localStorage
             const localMoods = this.getLocalMoods();
             const localChallenges = this.getLocalChallenges();
             const localMeditations = this.getLocalMeditations();
 
-            // Синхронизируем с ботом
             if (this.userData?.userId) {
                 await this.syncWithBot();
             }
@@ -75,21 +69,15 @@ class EmpathApp {
         localStorage.setItem('empath_meditations', JSON.stringify(meditations));
     }
 
-    // API методы для синхронизации с ботом
     async syncWithBot() {
         if (!this.userData?.userId) return;
 
         try {
-            // Отправляем данные на сервер
             const moods = this.getLocalMoods();
             const challenges = this.getLocalChallenges();
             const meditations = this.getLocalMeditations();
 
-            // Подготавливаем данные челленджей для отправки (только важные поля)
-            // Включаем все челленджи, включая отмененные (completed: false)
             const challengesToSync = challenges.map(c => {
-                // Отмененный челлендж - это тот, у которого явно установлен флаг cancelled
-                // или который был завершен (wasCompleted), но теперь не завершен
                 const isCancelled = c.cancelled === true || (c.wasCompleted === true && !c.completed);
                 
                 return {
@@ -97,10 +85,10 @@ class EmpathApp {
                     title: c.title,
                     description: c.description,
                     completed: c.completed || false,
-                    completedDate: c.completedDate || null, // Явно указываем null для отмененных
+                    completedDate: c.completedDate || null, 
                     startDate: c.startDate || null,
-                    cancelled: isCancelled, // Флаг отмены
-                    wasCompleted: c.wasCompleted || false // Флаг того, что был завершен ранее
+                    cancelled: isCancelled, 
+                    wasCompleted: c.wasCompleted || false 
                 };
             });
 
@@ -120,13 +108,11 @@ class EmpathApp {
             if (response.ok) {
                 const data = await response.json();
                 
-                // Обновляем локальные данные данными с сервера
                 if (data.moods && Array.isArray(data.moods)) {
                     this.saveLocalMoods(data.moods);
                 }
                 
                 if (data.challenges && Array.isArray(data.challenges)) {
-                    // Объединяем данные с сервера с локальными шаблонами
                     const mergedChallenges = this.mergeChallengesWithTemplates(data.challenges);
                     this.saveLocalChallenges(mergedChallenges);
                 }
@@ -137,12 +123,10 @@ class EmpathApp {
             }
         } catch (error) {
             console.error('Ошибка синхронизации с ботом:', error);
-            // Продолжаем работу с локальными данными
         }
     }
 
     mergeChallengesWithTemplates(serverChallenges) {
-        // Шаблоны челленджей с полной информацией
         const defaultChallenges = [
             { 
                 day: 1, 
@@ -181,18 +165,17 @@ class EmpathApp {
             }
         ];
 
-        // Объединяем данные с сервера с шаблонами
         return serverChallenges.map(serverChallenge => {
             const template = defaultChallenges.find(t => t.day === serverChallenge.day);
             if (template) {
                 return {
-                    ...template, // Полная информация из шаблона
-                    ...serverChallenge, // Данные с сервера (перезаписывают шаблон)
+                    ...template, 
+                    ...serverChallenge, 
                     completed: serverChallenge.completed || false,
-                    completedDate: serverChallenge.completedDate || null, // Явно указываем null для отмененных
+                    completedDate: serverChallenge.completedDate || null, 
                     startDate: serverChallenge.startDate || new Date().toISOString(),
-                    cancelled: serverChallenge.cancelled || false, // Сохраняем флаг отмены
-                    wasCompleted: serverChallenge.wasCompleted || false // Сохраняем флаг того, что был завершен
+                    cancelled: serverChallenge.cancelled || false, 
+                    wasCompleted: serverChallenge.wasCompleted || false 
                 };
             }
             return serverChallenge;
@@ -224,11 +207,9 @@ class EmpathApp {
     }
 
     async init() {
-        // Привязываем обработчики событий сразу
         this.attachEventListeners();
         
         try {
-            // Инициализация MAX Bridge
             if (window.WebApp) {
                 await this.initWebApp();
             } else {
@@ -242,10 +223,8 @@ class EmpathApp {
     }
 
     async initWebApp() {
-        // Сообщаем MAX что приложение готово
         window.WebApp.ready();
 
-        // Настраиваем кнопку назад
         if (window.WebApp.BackButton) {
             window.WebApp.BackButton.hide();
             window.WebApp.BackButton.onClick(() => {
@@ -253,12 +232,10 @@ class EmpathApp {
             });
         }
 
-        // Подписываемся на события
         window.WebApp.onEvent('viewportChanged', (params) => {
             this.handleViewportChange(params);
         });
 
-        // Получаем данные пользователя
         const initData = window.WebApp.initDataUnsafe;
         this.userData = {
             name: initData?.user?.first_name || 'Друг',
@@ -267,10 +244,8 @@ class EmpathApp {
             language: initData?.user?.language_code || 'ru'
         };
 
-        // Включаем подтверждение закрытия
         window.WebApp.enableClosingConfirmation();
 
-        // Загружаем данные
         await this.loadData();
 
         this.renderApp();
@@ -296,8 +271,7 @@ class EmpathApp {
             this.pendingMood = null;
             this.pendingMoodReason = '';
         }
-        
-        // Управляем кнопкой назад
+
         if (window.WebApp && window.WebApp.BackButton) {
             const mainViews = ['dashboard', 'mood', 'challenge', 'meditations', 'knowledge', 'settings', 'donation'];
             if (mainViews.includes(view)) {
@@ -309,7 +283,6 @@ class EmpathApp {
 
         this.renderApp();
         
-        // Тактильная обратная связь
         if (window.WebApp && view !== previousView) {
             window.WebApp.HapticFeedback.impactOccurred('light');
         }
@@ -360,14 +333,11 @@ class EmpathApp {
                 appElement.innerHTML = this.renderDashboard();
         }
 
-        // Добавляем анимацию
         appElement.classList.add('fade-in');
         setTimeout(() => appElement.classList.remove('fade-in'), 300);
-        
-        // Привязываем обработчики событий после рендера
+
         this.attachEventListeners();
-        
-        // Инициализируем аудио плеер для медитации, если нужно
+
         if (this.currentView === 'meditationPlayer') {
             setTimeout(() => this.initMeditationPlayer(), 100);
         }
@@ -378,13 +348,11 @@ class EmpathApp {
     }
     
     attachEventListeners() {
-        // Привязываем обработчик только один раз на document
         if (this.eventListenersAttached) {
             console.log('Event listeners already attached');
             return;
         }
         
-        // Ждем загрузки DOM
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 this.attachEventListeners();
@@ -392,19 +360,16 @@ class EmpathApp {
             return;
         }
         
-        // Используем делегирование событий на document
         const clickHandler = (e) => {
             this.handleClick(e);
         };
         
-        document.addEventListener('click', clickHandler, true); // Используем capture phase
+        document.addEventListener('click', clickHandler, true); 
         
-        // Также пробуем на body, если он существует
         if (document.body) {
             document.body.addEventListener('click', clickHandler, true);
         }
         
-        // И на window для надежности
         window.addEventListener('click', clickHandler, true);
         
         console.log('Event listeners attached to document, body and window');
@@ -412,13 +377,10 @@ class EmpathApp {
     }
 
     handleClick(e) {
-        // Для отладки - выводим информацию о клике
         console.log('Click event fired!', e.target, e.target.tagName);
         
-        // Ищем элемент с data-action используя closest
         let target = e.target.closest('[data-action]');
         
-        // Если не нашли через closest, проверяем сам элемент и его родители вручную
         if (!target) {
             let el = e.target;
             while (el && el !== document.body) {
@@ -440,13 +402,11 @@ class EmpathApp {
     }
 
     processClick(target, e) {
-        // Предотвращаем повторную обработку
         if (e.processed) {
             return;
         }
         e.processed = true;
         
-        // Проверяем, что клик был внутри app
         const appElement = document.getElementById('app');
         if (!appElement || !appElement.contains(target)) {
             console.log('Click outside app element');
@@ -460,7 +420,7 @@ class EmpathApp {
         const action = target.getAttribute('data-action');
         const params = target.getAttribute('data-params');
         
-        console.log('Processing click - action:', action, 'params:', params, 'target:', target); // Для отладки
+        console.log('Processing click - action:', action, 'params:', params, 'target:', target); 
         
         try {
             if (action === 'navigate' && params) {
@@ -758,7 +718,6 @@ class EmpathApp {
         const completedCount = challenges.filter(c => c.completed).length;
         const progressPercent = (completedCount / challenges.length) * 100;
 
-        // Статистика
         const totalChallenges = savedChallenges.filter(c => c.completed).length;
         const streakDays = this.calculateChallengeStreak(savedChallenges);
         const thisWeekChallenges = this.getThisWeekChallenges(savedChallenges);
@@ -988,11 +947,6 @@ class EmpathApp {
                 <div class="panel secondary">
                     <div class="container">
                         <div class="headline" style="margin-bottom: 12px;">Пожертвование через VK Добро</div>
-                        <div id="vk_donation_widget" class="vk-donation-widget" style="min-height: 380px;">
-                            <div class="body medium" style="text-align: center; padding: 24px;">
-                                Загружаем виджет VK Добро...
-                            </div>
-                        </div>
                         <button class="btn primary" style="margin-top: 16px;" data-action="openVkDobro">
                             Открыть VK Добро
                         </button>
@@ -1133,7 +1087,6 @@ class EmpathApp {
         const item = knowledgeItems[index];
         if (!item) return;
 
-        // Показываем детальный экран знания
         this.currentKnowledgeItem = item;
         this.navigateTo('knowledgeDetail');
     }
@@ -1239,9 +1192,6 @@ class EmpathApp {
             return false;
         }
 
-        if (window.VK && window.VK.Widgets && window.VK.Widgets.Donation) {
-            return true;
-        }
 
         if (this.vkScriptLoadingPromise) {
             return this.vkScriptLoadingPromise;
@@ -1275,59 +1225,6 @@ class EmpathApp {
         return this.vkScriptLoadingPromise;
     }
 
-    async initVKDonationWidget() {
-        const container = document.getElementById('vk_donation_widget');
-        if (!container) {
-            return;
-        }
-
-        container.innerHTML = `<div class="body medium" style="text-align: center; padding: 24px;">Загружаем виджет VK Добро...</div>`;
-
-        const widgetLoaded = await this.loadVKScript();
-
-        if (!widgetLoaded || !window.VK || !window.VK.Widgets) {
-            container.innerHTML = `
-                <div class="body medium" style="text-align: center; padding: 24px;">
-                    Не удалось загрузить виджет VK Добро. Попробуй открыть пожертвование по ссылке ниже.
-                </div>
-            `;
-            return;
-        }
-
-        try {
-            const projectId = this.vkDonationProjectId;
-            if (!projectId || projectId === 'VK_DOBRO_PROJECT_ID') {
-                container.innerHTML = `
-                    <div class="body medium" style="text-align: center; padding: 24px;">
-                        Здесь появится виджет VK Добро, как только он будет подключён. Пока что можно перейти по кнопке ниже и сделать пожертвование напрямую.
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = '';
-
-            if (window.VK.Widgets.Donation) {
-                window.VK.Widgets.Donation('vk_donation_widget', {
-                    button_text: 'Помочь',
-                    wide: 1
-                }, projectId);
-            } else {
-                container.innerHTML = `
-                    <div class="body medium" style="text-align: center; padding: 24px;">
-                        Виджет VK Добро временно недоступен. Используй кнопку ниже, чтобы перейти на страницу пожертвования.
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error('Ошибка инициализации виджета VK Добро:', error);
-            container.innerHTML = `
-                <div class="body medium" style="text-align: center; padding: 24px;">
-                    Не удалось отобразить виджет. Попробуй открыть пожертвование по ссылке ниже.
-                </div>
-            `;
-        }
-    }
 
     openVkDobro(url) {
         const targetUrl = typeof url === 'string' && url.startsWith('http')
@@ -1346,7 +1243,6 @@ class EmpathApp {
         }
     }
 
-    // Методы взаимодействия
     selectMood(emoji) {
         if (window.WebApp) {
             window.WebApp.HapticFeedback.impactOccurred('medium');
@@ -1533,7 +1429,7 @@ class EmpathApp {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const dayOfWeek = today.getDay();
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Понедельник
+        startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); 
         startOfWeek.setHours(0, 0, 0, 0);
 
         const endOfWeek = new Date(startOfWeek);
@@ -1543,7 +1439,7 @@ class EmpathApp {
         moods.forEach(mood => {
             const moodDate = new Date(mood.date);
             if (moodDate >= startOfWeek && moodDate < endOfWeek) {
-                const dayIndex = (moodDate.getDay() + 6) % 7; // Понедельник = 0, Воскресенье = 6
+                const dayIndex = (moodDate.getDay() + 6) % 7; 
                 if (dayIndex >= 0 && dayIndex < 7) {
                     weekData[dayIndex].count++;
                     weekData[dayIndex].sum += mood.value;
@@ -1721,7 +1617,6 @@ class EmpathApp {
             window.WebApp.HapticFeedback.impactOccurred('light');
         }
 
-        // Получаем полную информацию о челлендже
         const defaultChallenges = [
             { 
                 day: 1, 
@@ -1774,18 +1669,15 @@ class EmpathApp {
             };
             challenges.push(challenge);
         } else {
-            // Обновляем информацию о челлендже, если она отсутствует
             challenge = {
                 ...challengeTemplate,
                 ...challenge,
                 startDate: challenge.startDate || new Date().toISOString()
             };
-            // Обновляем в массиве
             const index = challenges.findIndex(c => c.day === day);
             challenges[index] = challenge;
         }
 
-        // Если уже завершен, просто показываем информацию
         if (challenge.completed) {
             const message = `Челлендж дня ${day} уже завершен!`;
             if (window.WebApp && window.WebApp.showPopup) {
@@ -1796,15 +1688,13 @@ class EmpathApp {
             return;
         }
 
-        // Отмечаем как завершенный
         challenge.completed = true;
         challenge.completedDate = new Date().toISOString();
-        challenge.cancelled = false; // Сбрасываем флаг отмены, если был
-        challenge.wasCompleted = true; // Помечаем, что был завершен
+        challenge.cancelled = false; 
+        challenge.wasCompleted = true; 
 
         this.saveLocalChallenges(challenges);
 
-        // Отправляем на сервер полную информацию о челлендже
         try {
             const response = await this.sendToBot('/challenge/complete', { 
                 challenge: {
@@ -1814,12 +1704,11 @@ class EmpathApp {
                     completed: challenge.completed,
                     completedDate: challenge.completedDate,
                     startDate: challenge.startDate,
-                    cancelled: false, // Явно указываем, что не отменен
-                    wasCompleted: true // Указываем, что завершен
+                    cancelled: false,  
+                    wasCompleted: true 
                 }
             });
 
-            // Если сервер вернул обновленные данные, используем их
             if (response && response.challenge) {
                 const index = challenges.findIndex(c => c.day === day);
                 if (index !== -1) {
@@ -1829,10 +1718,8 @@ class EmpathApp {
             }
         } catch (error) {
             console.error('Ошибка синхронизации челленджа с ботом:', error);
-            // Продолжаем работу даже при ошибке синхронизации
         }
 
-        // Дополнительно синхронизируем все данные с ботом
         try {
             await this.syncWithBot();
         } catch (error) {
@@ -1846,7 +1733,6 @@ class EmpathApp {
             alert(successMessage);
         }
 
-        // Обновляем текущий челлендж и перерисовываем
         if (this.currentChallenge && this.currentChallenge.day === day) {
             this.currentChallenge.completed = true;
             this.currentChallenge.completedDate = challenge.completedDate;
@@ -1873,15 +1759,13 @@ class EmpathApp {
             return;
         }
 
-        // Отменяем выполнение
         challenge.completed = false;
         challenge.completedDate = null;
-        challenge.cancelled = true; // Явно помечаем как отмененный
-        challenge.wasCompleted = true; // Помечаем, что ранее был завершен
+        challenge.cancelled = true; 
+        challenge.wasCompleted = true; 
 
         this.saveLocalChallenges(challenges);
 
-        // Отправляем на сервер информацию об отмене
         try {
             const response = await this.sendToBot('/challenge/cancel', { 
                 challenge: {
@@ -1891,12 +1775,11 @@ class EmpathApp {
                     completed: false,
                     completedDate: null,
                     startDate: challenge.startDate,
-                    cancelled: true, // Явно указываем, что челлендж отменен
-                    wasCompleted: true // Указываем, что ранее был завершен
+                    cancelled: true, 
+                    wasCompleted: true 
                 }
             });
 
-            // Если сервер вернул обновленные данные, используем их
             if (response && response.challenge) {
                 const index = challenges.findIndex(c => c.day === day);
                 if (index !== -1) {
@@ -1906,10 +1789,8 @@ class EmpathApp {
             }
         } catch (error) {
             console.error('Ошибка синхронизации отмены челленджа с ботом:', error);
-            // Продолжаем работу даже при ошибке синхронизации
         }
 
-        // Дополнительно синхронизируем все данные с ботом
         try {
             await this.syncWithBot();
         } catch (error) {
@@ -1923,7 +1804,6 @@ class EmpathApp {
             alert(successMessage);
         }
 
-        // Обновляем текущий челлендж и перерисовываем
         if (this.currentChallenge && this.currentChallenge.day === day) {
             this.currentChallenge.completed = false;
             this.currentChallenge.completedDate = null;
@@ -1943,19 +1823,17 @@ class EmpathApp {
             { id: 1, name: '💤 Перед сном', duration: 10, type: 'sleep', file: 'meditations/sleep.mp3' },
             { id: 2, name: '🌪️ Против тревоги', duration: 5, type: 'anxiety', file: 'meditations/anxiety.mp3' },
             { id: 3, name: '🌊 Расслабляющая', duration: 7, type: 'relax', file: 'meditations/relax.mp3' },
-            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus', file: 'meditations/relax.mp3' } // Используем relax для focus
+            { id: 4, name: '🎯 На концентрацию', duration: 8, type: 'focus', file: 'meditations/relax.mp3' }  
         ];
 
         const meditation = meditations.find(m => m.id === id);
         if (!meditation) return;
 
-        // Останавливаем предыдущую медитацию, если она играет
         if (this.audioPlayer) {
             this.audioPlayer.pause();
             this.audioPlayer = null;
         }
 
-        // Переходим на экран медитации
         this.currentMeditation = meditation;
         this.navigateTo('meditationPlayer');
     }
@@ -2102,18 +1980,16 @@ class EmpathApp {
         const meditationEntry = {
             meditationId: this.currentMeditation.id,
             name: this.currentMeditation.name,
-            duration: this.currentMeditation.duration * 60, // в секундах
+            duration: this.currentMeditation.duration * 60, 
             type: this.currentMeditation.type,
             date: new Date().toISOString(),
             timestamp: Date.now()
         };
 
-        // Сохраняем локально
         const savedMeditations = this.getLocalMeditations();
         savedMeditations.push(meditationEntry);
         this.saveLocalMeditations(savedMeditations);
 
-        // Отправляем на сервер
         await this.sendToBot('/meditation', { meditation: meditationEntry });
 
             const message = 'Медитация завершена!';
@@ -2125,7 +2001,6 @@ class EmpathApp {
                 alert(message);
             }
 
-        // Возвращаемся к списку медитаций
         this.currentMeditation = null;
         this.audioPlayer = null;
         this.navigateTo('meditations');
@@ -2140,8 +2015,6 @@ class EmpathApp {
     }
 }
 
-// Инициализация приложения
 const app = new EmpathApp();
 
-// Глобальные методы для onclick
 window.app = app;

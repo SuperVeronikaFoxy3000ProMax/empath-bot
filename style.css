@@ -27,7 +27,7 @@ body {
 }
 
 .app-container {
-    padding-bottom: 80px; /* Отступ для фиксированной навигации */
+    padding-bottom: 80px; 
 }
 
 .loading {
@@ -39,7 +39,6 @@ body {
     color: var(--max-text-secondary);
 }
 
-/* Компоненты MAX UI стили */
 .panel {
     background: var(--max-surface);
     border-radius: 12px;
@@ -95,7 +94,6 @@ body {
 .grid.gap-12 { gap: 12px; }
 .grid.gap-16 { gap: 16px; }
 
-/* Typography */
 .typography {
     font-family: inherit;
 }
@@ -130,7 +128,6 @@ body {
     color: var(--max-text-secondary);
 }
 
-/* Кнопки */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -180,7 +177,6 @@ body {
     cursor: not-allowed;
 }
 
-/* Иконка кнопка */
 .icon-btn {
     width: 44px;
     height: 44px;
@@ -198,7 +194,6 @@ body {
     transform: scale(0.95);
 }
 
-/* Tool button */
 .tool-btn {
     display: flex;
     flex-direction: column;
@@ -244,7 +239,6 @@ body {
     color: white;
 }
 
-/* Списки */
 .cell-list {
     background: var(--max-surface);
     border-radius: 12px;
@@ -321,7 +315,6 @@ body {
     color: var(--max-text-secondary);
 }
 
-/* Аватар */
 .avatar {
     width: 72px;
     height: 72px;
@@ -341,7 +334,6 @@ body {
     font-size: 16px;
 }
 
-/* Счетчик */
 .counter {
     background: var(--max-primary);
     color: white;
@@ -353,7 +345,6 @@ body {
     text-align: center;
 }
 
-/* Переключатель */
 .switch {
     position: relative;
     width: 52px;
@@ -398,7 +389,6 @@ input:checked + .switch-slider:before {
     transform: translateX(20px);
 }
 
-/* Навигация */
 .navigation {
     position: fixed;
     bottom: 0;
@@ -410,7 +400,6 @@ input:checked + .switch-slider:before {
     z-index: 1000;
 }
 
-/* Адаптивность */
 @media (max-width: 360px) {
     .grid.cols-5 {
         grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
@@ -426,7 +415,6 @@ input:checked + .switch-slider:before {
     }
 }
 
-/* Анимации */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -436,7 +424,6 @@ input:checked + .switch-slider:before {
     animation: fadeIn 0.3s ease;
 }
 
-/* Состояния настроения */
 .mood-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -470,7 +457,6 @@ input:checked + .switch-slider:before {
     background: rgba(38, 136, 235, 0.1);
 }
 
-/* Progress */
 .progress-bar {
     height: 4px;
     background: var(--max-border);
@@ -485,7 +471,6 @@ input:checked + .switch-slider:before {
     transition: width 0.3s ease;
 }
 
-/* Mood Chart */
 .mood-chart {
     display: flex;
     justify-content: space-between;
